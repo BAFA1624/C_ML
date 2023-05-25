@@ -16,4 +16,6 @@ main() {
     test_predictions.fill( 1. );
 
     std::cout << MSE( test_predictions, data[1] ) << std::endl;
+
+    Neuron<double> test( 0.5, sigmoid<double> );
 }
