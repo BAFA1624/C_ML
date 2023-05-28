@@ -15,7 +15,7 @@ main() {
     std::array<double, 11> test_predictions;
     test_predictions.fill( 1. );
 
-    std::cout << MSE( test_predictions, data[1] ) << std::endl;
+    std::cout << C_ML::MSE( test_predictions, data[1] ) << std::endl;
 
-    Neuron<double> test( 0.5, sigmoid<double> );
+    C_ML::neuron::Neuron<double> test( 0.5, C_ML::neuron::sigmoid<double> );
 }

@@ -4,6 +4,9 @@
 #include <concepts>
 #include <vector>
 
+namespace C_ML
+{
+
 template <std::floating_point T>
 T
 MSE( const std::vector<T> & predictions, const std::vector<T> & labels ) {
@@ -26,3 +29,5 @@ MSE( const std::array<T, N> & predictions, const std::array<T, N> & labels ) {
     }
     return MSE;
 }
+
+}; // namespace C_ML

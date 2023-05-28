@@ -3,6 +3,13 @@
 #include <cmath>
 #include <concepts>
 
+
+namespace C_ML
+{
+
+namespace neuron
+{
+
 template <std::floating_point T>
 constexpr inline T
 sigmoid( const T x ) {
@@ -41,3 +48,7 @@ silu( const T x ) {
         return sigmoid( x );
     }
 }
+
+}; // namespace neuron
+
+}; // namespace C_ML
