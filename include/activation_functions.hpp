@@ -1,8 +1,6 @@
 #pragma once
 
-#include <cmath>
-#include <concepts>
-
+#include "neuron_base.hpp"
 
 namespace C_ML
 {
@@ -10,13 +8,13 @@ namespace C_ML
 namespace neuron
 {
 
-template <std::floating_point T>
+template <neuron_weight T>
 constexpr inline T
 sigmoid( const T x ) {
     return std::exp( x ) / ( std::exp( x ) + 1.0 );
 }
 
-template <std::floating_point T>
+template <neuron_weight T>
 constexpr inline T
 relu( const T x ) {
     if constexpr ( x > 0. ) {
@@ -27,7 +25,7 @@ relu( const T x ) {
     }
 }
 
-template <std::floating_point T>
+template <neuron_weight T>
 constexpr inline T
 leakrelu( const T x ) {
     if constexpr ( x > 0. ) {
@@ -38,7 +36,7 @@ leakrelu( const T x ) {
     }
 }
 
-template <std::floating_point T>
+template <neuron_weight T>
 constexpr inline T
 silu( const T x ) {
     if constexpr ( x > 0. ) {
