@@ -1,7 +1,7 @@
 #pragma once
 
 #include "activation_functions.hpp"
-#include "neuron_base.hpp"
+#include "neuron_utils.hpp"
 
 namespace C_ML
 {
