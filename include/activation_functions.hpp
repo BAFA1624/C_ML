@@ -8,13 +8,19 @@ namespace C_ML
 namespace neuron
 {
 
-template <neuron_weight T>
+template <param_type T>
 constexpr inline T
 sigmoid( const T x ) {
     return std::exp( x ) / ( std::exp( x ) + 1.0 );
 }
 
-template <neuron_weight T>
+template <param_type T>
+constexpr inline T
+tanh( const T x ) {
+    return std::tanh( x );
+}
+
+template <param_type T>
 constexpr inline T
 relu( const T x ) {
     if constexpr ( x > 0. ) {
@@ -25,7 +31,7 @@ relu( const T x ) {
     }
 }
 
-template <neuron_weight T>
+template <param_type T>
 constexpr inline T
 leakrelu( const T x ) {
     if constexpr ( x > 0. ) {
@@ -36,7 +42,7 @@ leakrelu( const T x ) {
     }
 }
 
-template <neuron_weight T>
+template <param_type T>
 constexpr inline T
 silu( const T x ) {
     if constexpr ( x > 0. ) {

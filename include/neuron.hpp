@@ -3,7 +3,6 @@
 #include "activation_functions.hpp"
 #include "neuron_base.hpp"
 
-
 namespace C_ML
 {
 
@@ -27,19 +26,18 @@ initialise( std::complex<T> & z ) {
     }
 }
 
-
 template <neuron_weight T, init_t Init = init_t::random>
 class Neuron
 {
     private:
-    T                                       m_bias;
-    std::vector<T>                          m_weights;
-    std::vector<std::shared_ptr<Neuron<T>>> m_inputs;
-    activation_func<T>                      m_activation;
+    T                              m_bias;
+    std::vector<T>                 m_weights;
+    std::vector<Neuron<T, Init> &> m_inputs;
+    activation_func<T>             m_activation;
 
     public:
-    Neuron( const activation_func<T>                        f,
-            const std::vector<std::shared_ptr<Neuron<T>>> & inputs ) :
+    Neuron( const activation_func<T>         f,
+            const std::vector<Neuron<T> &> & inputs ) :
         m_inputs( inputs ), m_activation( f ) {
         m_weights.resize( inputs.size() );
         if constexpr ( !is_complex<T>::value ) {
