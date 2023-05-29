@@ -59,11 +59,9 @@ class Neuron
     [[nodiscard]] virtual T cost() const noexcept {
         return m_activation(
             m_bias
-            + std::accumulate( m_inputs.cbegin(), m_inputs.cend(),
-                               static_cast<T>( 0 ),
-                               []( const auto b, const auto & n ) {
-                                   return b + n->cost();
-                               } ) );
+            + std::accumulate(
+                m_inputs.cbegin(), m_inputs.cend(), static_cast<T>( 0 ),
+                []( const auto b, const auto & n ) { return b + n.cost(); } ) );
     };
 };
 
