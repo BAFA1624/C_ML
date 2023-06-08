@@ -8,6 +8,13 @@ namespace C_ML
 namespace neuron
 {
 
+// Passthrough activation function for input layer
+template <param_type T>
+constexpr inline T
+passthrough( const T x ) {
+    return x;
+}
+
 template <param_type T>
 constexpr inline T
 sigmoid( const T x ) {
