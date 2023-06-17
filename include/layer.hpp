@@ -8,12 +8,12 @@ namespace C_ML
 namespace layer
 {
 
-template <neuron_weight T, std::size_t Size, std::size_t InputSize,
+template <neuron_weight T, activation_func<T> f,
           neuron::init_t Init = neuron::init_t::random>
 class Layer
 {
     private:
-    std::array<neuron::Neuron<T, Init> &, Size> m_neurons;
+    std::vector<neuron::Neuron<T, f, Init> &> m_neurons;
 
     public:
     Layer( const neuron::activation_func<T>                       f,

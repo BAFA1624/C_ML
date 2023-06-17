@@ -26,34 +26,36 @@ initialise( std::complex<T> & z ) {
     }
 }
 
-template <neuron_weight T, std::size_t Size, activation_func<T> f,
-          init_t Init = init_t::random>
+template <neuron_weight T, activation_func<T> f, init_t Init = init_t::random>
 class Neuron
 {
     private:
-    T                                   m_bias;
-    std::array<T, Size>                 m_weights;
-    std::array<Neuron<T, Init> &, Size> m_inputs;
+    T                                 m_bias;
+    std::vector<T>                    m_input_weights;
+    std::vector<Neuron<T, f, Init> &> m_inputs;
+    std::vector<Neuron<T, f, Init> &> m_outputs;
 
     public:
-    template <std::size_t PreviousLayerSize, activation_func<T> g>
-    Neuron( const std::array<Neuron<T, PreviousLayerSize, g, Init> &, Size> &
-                inputs ) :
+    Neuron( const std::vector<Neuron<T, f, Init> &> & inputs ) :
         m_inputs( inputs ), m_activation( f ) {
         if constexpr ( !is_complex<T>::value ) {
             initialise<T, Init>( m_bias );
-            for ( auto & weight : m_weights ) { initialise<T, Init>( weight ); }
+            for ( auto & weight : m_input_weights ) {
+                initialise<T, Init>( weight );
+            }
         }
         else {
             initialise<typename T::value_type, Init>( m_bias );
-            for ( auto & weight : m_weights ) {
+            for ( auto & weight : m_input_weights ) {
                 initialise<typename T::value_type, Init>( weight );
             }
         }
     }
     ~Neuron() = default;
 
-    [[nodiscard]] constexpr auto weights() const noexcept { return m_weights; }
+    [[nodiscard]] constexpr auto weights() const noexcept {
+        return m_input_weights;
+    }
     [[nodiscard]] constexpr auto bias() const noexcept { return m_bias; }
 
     [[nodiscard]] T forward() const noexcept {

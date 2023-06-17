@@ -36,6 +36,6 @@ main() {
 
     std::cout << C_ML::MSE( test_predictions, complex_data[0] ) << std::endl;
 
-    C_ML::neuron::Neuron<T, 0, C_ML::neuron::sigmoid> test( {} );
+    C_ML::neuron::Neuron<T, C_ML::neuron::sigmoid> test( {} );
     std::cout << test.cost() << std::endl;
 }

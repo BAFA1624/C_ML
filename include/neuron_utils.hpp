@@ -24,14 +24,14 @@ struct is_complex<std::complex<T>> : std::true_type
 template <typename T>
 concept param_type = std::floating_point<T> || is_complex<T>::value;
 
+template <param_type T>
+using activation_func = std::function<T( const T )>;
+
 namespace neuron
 {
 
 template <typename T>
 concept neuron_weight = param_type<T>;
-
-template <neuron_weight T>
-using activation_func = std::function<T( const T )>;
 
 enum class initialisation_type { random };
 using init_t = initialisation_type;
