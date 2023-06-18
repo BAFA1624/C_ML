@@ -45,6 +45,7 @@ class NeuralNetwork
     std::uint64_t              m_n_outputs;
     std::uint64_t              m_n_layers;
     std::vector<std::uint64_t> m_neurons_per_layer;
+    std::vector<function_t>    m_activation_functions;
 
     network_bias_t   m_network_biases;
     network_weight_t m_network_weights;
