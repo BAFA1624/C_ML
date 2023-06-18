@@ -28,32 +28,39 @@ sigmoid( const T x ) {
 }
 
 template <weight_type T>
+using bias_t = T;
+template <weight_type T>
+using layer_bias_t = std::vector<bias_t<T>>;
+template <weight_type T>
+using network_bias_t = std::vector<layer_bias_t<T>>;
+
+template <weight_type T>
+using neuron_weight_t = std::vector<T>;
+template <weight_type T>
+using layer_weight_t = std::vector<neuron_weight_t<T>>;
+template <weight_type T>
+using network_weight_t = std::vector<layer_weight_t<T>>;
+
+template <weight_type T>
+using function_t = std::function<T( const T )>;
+
+template <weight_type T>
 class NeuralNetwork
 {
     private:
-    using bias_t = T;
-    using layer_bias_t = std::vector<bias_t>;
-    using network_bias_t = std::vector<layer_bias_t>;
-
-    using neuron_weight_t = std::vector<T>;
-    using layer_weight_t = std::vector<neuron_weight_t>;
-    using network_weight_t = std::vector<layer_weight_t>;
-
-    using function_t = std::function<T( const T )>;
-
     std::uint64_t              m_n_inputs;
     std::uint64_t              m_n_outputs;
     std::uint64_t              m_n_layers;
     std::vector<std::uint64_t> m_neurons_per_layer;
-    std::vector<function_t>    m_activation_functions;
+    std::vector<function_t<T>> m_activation_functions;
 
-    network_bias_t   m_network_biases;
-    network_weight_t m_network_weights;
+    network_bias_t<T>   m_network_biases;
+    network_weight_t<T> m_network_weights;
 
     public:
     NeuralNetwork( const std::uint64_t n_inputs, const std::uint64_t n_outputs,
                    const std::vector<std::uint64_t> & neurons_per_layer,
-                   const std::vector<function_t> &    activation_functions,
+                   const std::vector<function_t<T>> & activation_functions,
                    const std::time_t                  seed = 1 ) :
         m_n_inputs( n_inputs ),
         m_n_outputs( n_outputs ),
@@ -67,22 +74,22 @@ class NeuralNetwork
         std::srand( seed );
 
         // Initializing network biases
-        m_network_biases = network_bias_t( m_n_layers );
+        m_network_biases = network_bias_t<T>( m_n_layers );
         for ( std::uint64_t i{ 0 }; i < m_n_layers; ++i ) {
-            m_network_biases[i] = layer_bias_t( m_neurons_per_layer[i] );
+            m_network_biases[i] = layer_bias_t<T>( m_neurons_per_layer[i] );
         }
 
         // Initializing network weights
-        m_network_weights = network_weight_t( m_n_layers );
+        m_network_weights = network_weight_t<T>( m_n_layers );
         for ( std::uint64_t i{ 0 }; i < m_n_layers; ++i ) {
-            m_network_weights[i] = layer_weight_t( m_neurons_per_layer[i] );
+            m_network_weights[i] = layer_weight_t<T>( m_neurons_per_layer[i] );
             for ( std::uint64_t j{ 0 }; j < m_neurons_per_layer[i]; ++j ) {
                 if ( i == 0 ) {
-                    m_network_weights[0][j] = neuron_weight_t( m_n_inputs );
+                    m_network_weights[0][j] = neuron_weight_t<T>( m_n_inputs );
                 }
                 else {
                     m_network_weights[i][j] =
-                        neuron_weight_t( m_neurons_per_layer[i - 1] );
+                        neuron_weight_t<T>( m_neurons_per_layer[i - 1] );
                 }
 
                 // Randomly initialize each weight
