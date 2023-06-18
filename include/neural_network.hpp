@@ -2,6 +2,7 @@
 
 #include <complex>
 #include <concepts>
+#include <vector>
 
 namespace neural
 {
