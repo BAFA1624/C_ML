@@ -36,6 +36,35 @@ class NeuralNetwork
 
     network_bias_t   m_network_biases;
     network_weight_t m_network_weights;
+
+    public:
+    NeuralNetwork( const std::uint64_t n_inputs, const std::uint64_t n_outputs,
+                   const std::vector<std::uint64_t> & neurons_per_layer ) :
+        m_n_inputs( n_inputs ),
+        m_n_outputs( n_outputs ),
+        m_n_layers( neurons_per_layer.size() ),
+        m_neurons_per_layer( neurons_per_layer ) {
+        // Initializing network biases
+        m_network_biases = network_bias_t( m_n_layers );
+        for ( std::uint64_t i{ 0 }; i < m_n_layers; ++i ) {
+            m_network_biases[i] = layer_bias_t( m_neurons_per_layer[i] );
+        }
+
+        // Initializing network weights
+        m_network_weights = network_weight_t( m_n_layers );
+        for ( std::uint64_t i{ 0 }; i < m_n_layers; ++i ) {
+            m_network_weights[i] = layer_weight_t( m_neurons_per_layer[i] );
+            for ( std::uint64_t j{ 0 }; j < m_neurons_per_layer[i]; ++j ) {
+                if ( i == 0 ) {
+                    m_network_weights[0][j] = neuron_weight_t( m_n_inputs );
+                }
+                else {
+                    m_network_weights[i][j] =
+                        neuron_weight_t( m_neurons_per_layer[i - 1] );
+                }
+            }
+        }
+    }
 };
 
 } // namespace neural
