@@ -21,6 +21,10 @@ template <typename T>
 class NeuralNetwork
 {
     private:
+    using bias_t = typename T;
+    using layer_bias_t = typename std::vector<bias_t>;
+    using network_bias_t = typename std::vector<layer_bias_t>;
+
     std::uint64_t m_n_inputs;
     std::uint64_t m_n_outputs;
     std::uint64_t m_n_layers;
