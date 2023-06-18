@@ -1,5 +1,8 @@
 #pragma once // NEURAL_NETWORK_HPP
 
+#include <complex>
+#include <concepts>
+
 namespace neural
 {
 
