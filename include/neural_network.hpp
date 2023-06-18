@@ -18,6 +18,11 @@ concept weight_type = std::floating_point<T> || is_complex<T>::value;
 
 template <typename T>
 class NeuralNetwork
-{};
+{
+    private:
+    std::uint64_t m_n_inputs;
+    std::uint64_t m_n_outputs;
+    std::uint64_t m_n_layers;
+};
 
 } // namespace neural
