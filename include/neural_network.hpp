@@ -28,6 +28,8 @@ class NeuralNetwork
     std::uint64_t m_n_inputs;
     std::uint64_t m_n_outputs;
     std::uint64_t m_n_layers;
+
+    network_bias_t m_network_bias;
 };
 
 } // namespace neural
