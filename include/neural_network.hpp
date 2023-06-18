@@ -5,6 +5,7 @@
 #include <concepts>
 #include <cstdlib>
 #include <ctime>
+#include <functional>
 #include <vector>
 
 namespace neural
