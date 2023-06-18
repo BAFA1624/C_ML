@@ -53,13 +53,16 @@ class NeuralNetwork
     public:
     NeuralNetwork( const std::uint64_t n_inputs, const std::uint64_t n_outputs,
                    const std::vector<std::uint64_t> & neurons_per_layer,
+                   const std::vector<function_t> &    activation_functions,
                    const std::time_t                  seed = 1 ) :
-
-
         m_n_inputs( n_inputs ),
         m_n_outputs( n_outputs ),
         m_n_layers( neurons_per_layer.size() ),
+        m_activation_functions( activation_functions ),
         m_neurons_per_layer( neurons_per_layer ) {
+        // Must be an activation function for each layer
+        assert( m_activation_functions.size() == m_n_layers );
+
         // Seed random number generator
         std::srand( seed );
 
