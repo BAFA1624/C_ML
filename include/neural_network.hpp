@@ -20,7 +20,11 @@ struct is_complex<std::complex<T>> : std::true_type
 template <typename T>
 concept weight_type = std::floating_point<T> || is_complex<T>::value;
 
-
+template <weight_type T>
+T
+sigmoid( const T x ) {
+    static_cast<T>( 1 ) / ( 1 + std::exp( -x ) );
+}
 
 template <weight_type T>
 class NeuralNetwork
