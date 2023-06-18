@@ -41,11 +41,17 @@ class NeuralNetwork
 
     public:
     NeuralNetwork( const std::uint64_t n_inputs, const std::uint64_t n_outputs,
-                   const std::vector<std::uint64_t> & neurons_per_layer ) :
+                   const std::vector<std::uint64_t> & neurons_per_layer,
+                   const std::time_t                  seed = 1 ) :
+
+
         m_n_inputs( n_inputs ),
         m_n_outputs( n_outputs ),
         m_n_layers( neurons_per_layer.size() ),
         m_neurons_per_layer( neurons_per_layer ) {
+        // Seed random number generator
+        std::srand( seed );
+
         // Initializing network biases
         m_network_biases = network_bias_t( m_n_layers );
         for ( std::uint64_t i{ 0 }; i < m_n_layers; ++i ) {
@@ -63,6 +69,11 @@ class NeuralNetwork
                 else {
                     m_network_weights[i][j] =
                         neuron_weight_t( m_neurons_per_layer[i - 1] );
+                }
+
+                // Randomly initialize each weight
+                for ( auto & weight : m_network_weights[i][j] ) {
+                    weight = static_cast<T>( std::rand() ) / RAND_MAX;
                 }
             }
         }
