@@ -39,6 +39,8 @@ class NeuralNetwork
     using layer_weight_t = std::vector<neuron_weight_t>;
     using network_weight_t = std::vector<layer_weight_t>;
 
+    using function_t = std::function<T( const T )>;
+
     std::uint64_t              m_n_inputs;
     std::uint64_t              m_n_outputs;
     std::uint64_t              m_n_layers;
