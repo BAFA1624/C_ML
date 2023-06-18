@@ -24,7 +24,7 @@ concept weight_type = std::floating_point<T> || is_complex<T>::value;
 template <weight_type T>
 T
 sigmoid( const T x ) {
-    static_cast<T>( 1 ) / ( 1 + std::exp( -x ) );
+    return static_cast<T>( 1 ) / ( 1 + std::exp( -x ) );
 }
 
 template <weight_type T>
@@ -65,8 +65,8 @@ class NeuralNetwork
         m_n_inputs( n_inputs ),
         m_n_outputs( n_outputs ),
         m_n_layers( neurons_per_layer.size() ),
-        m_activation_functions( activation_functions ),
-        m_neurons_per_layer( neurons_per_layer ) {
+        m_neurons_per_layer( neurons_per_layer ),
+        m_activation_functions( activation_functions ) {
         // Must be an activation function for each layer
         assert( m_activation_functions.size() == m_n_layers );
 
