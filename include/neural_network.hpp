@@ -2,6 +2,8 @@
 
 #include <complex>
 #include <concepts>
+#include <cstdlib>
+#include <ctime>
 #include <vector>
 
 namespace neural
