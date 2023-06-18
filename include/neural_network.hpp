@@ -33,7 +33,7 @@ class NeuralNetwork
     std::uint64_t m_n_outputs;
     std::uint64_t m_n_layers;
 
-    network_bias_t   m_network_bias;
+    network_bias_t   m_network_biases;
     network_weight_t m_network_weights;
 };
 
