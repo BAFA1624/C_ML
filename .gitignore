@@ -48,3 +48,5 @@ _deps
 # VSCode files
 build/*
 .vscode/*
+
+.cache
