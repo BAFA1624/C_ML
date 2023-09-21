@@ -10,15 +10,21 @@ main() {
         { 3, 4, 5, 6, 3 },
         { neural::sigmoid<double>, neural::sigmoid<double>,
           neural::sigmoid<double>, neural::sigmoid<double> },
-        std::time( nullptr ) );
+        { neural::d_sigmoid<double>, neural::d_sigmoid<double>,
+          neural::d_sigmoid<double>, neural::d_sigmoid<double> } );
 
     const auto shape = test.shape();
 
-    std::cout << "Network shape:" << std::endl;
-    for ( const auto & x : shape ) { std::cout << x << std::endl; }
+    test.forward_pass( std::vector<double>{ 0., 1., 2. } );
 
-    const auto res = test.forward(
-        std::vector<double>{ 0., 1., 2., 3., 4., 5., 6., 7., 8., 9. } );
-    std::cout << "Testing forwarding:" << std::endl;
-    for ( const auto & x : res ) { std::cout << x << std::endl; }
+    const auto & internal_outputs = test.intermediate_state();
+    for ( const auto & [i, layer] : internal_outputs | std::views::enumerate ) {
+        for ( std::cout << "Layer (size = " << layer.size() << "): " << i
+                        << "\n\t";
+              const auto & output : layer ) {
+            std::cout << output << ' ';
+        }
+        std::cout << std::endl;
+    }
+    test.backward_pass( {} );
 }
