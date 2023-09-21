@@ -16,21 +16,26 @@ struct is_complex<std::complex<T>> : std::true_type
 {};
 
 template <typename T>
-concept weight_type = std::floating_point<T> || is_complex<T>::value;
+concept Weight = std::floating_point<T> || is_complex<T>::value;
 
 // Pair of weight & bias
-template <weight_type T>
+template <Weight T>
 using neuron_weight_t = std::vector<T>;
 
-template <weight_type T>
+template <Weight T>
 using neuron_t = std::pair<neuron_weight_t<T>, T>;
 
-template <weight_type T>
+template <Weight T>
 using layer_t = std::vector<neuron_t<T>>;
-template <weight_type T>
+template <Weight T>
 using network_t = std::vector<layer_t<T>>;
 
-template <weight_type T>
+template <Weight T>
+using output_layer_t = std::vector<T>;
+template <Weight T>
+using output_network_t = std::vector<output_layer_t<T>>;
+
+template <Weight T>
 using function_t = std::function<T( const T )>;
 
 } // namespace neural
