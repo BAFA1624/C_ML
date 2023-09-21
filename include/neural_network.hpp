@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <ctime>
+#include <format>
 #include <functional>
 #include <iostream>
 #include <numeric>
@@ -20,7 +21,7 @@
 namespace neural
 {
 
-template <weight_type T>
+template <Weight T>
 class NeuralNetwork
 {
     private:
@@ -29,12 +30,15 @@ class NeuralNetwork
     std::uint64_t              m_n_layers;
     std::vector<std::uint64_t> m_neurons_per_layer;
     std::vector<function_t<T>> m_activation_functions;
+    std::vector<function_t<T>> m_activation_gradients;
 
-    network_t<T> m_network;
+    network_t<T>        m_network;
+    output_network_t<T> m_intermediate_state;
 
     public:
     NeuralNetwork( const std::vector<std::uint64_t> & neurons_per_layer,
                    const std::vector<function_t<T>> & activation_functions,
+                   const std::vector<function_t<T>> & activation_gradients,
                    const std::time_t                  seed = 1 ) :
         m_n_inputs( neurons_per_layer.front() ),
         m_n_outputs( neurons_per_layer.back() ),
@@ -47,26 +51,31 @@ class NeuralNetwork
         m_activation_functions.insert( m_activation_functions.end(),
                                        activation_functions.cbegin(),
                                        activation_functions.cend() );
+        m_activation_gradients = std::vector<function_t<T>>{};
+        m_activation_gradients.push_back( linear<T> );
+        m_activation_gradients.insert( m_activation_gradients.end(),
+                                       activation_gradients.cbegin(),
+                                       activation_gradients.cend() );
         assert( m_activation_functions.size() == m_n_layers );
 
         // Seed random number generator
         std::srand( static_cast<unsigned>( seed ) );
 
-        // Initializing network
+        // Initializing network & intermediate_state in the same
+        // shape for back propagation using the outputs of each layer
         m_network = network_t<T>( m_n_layers );
+        m_intermediate_state = output_network_t<T>( m_n_layers );
 
         // Initializing layers
         for ( std::uint64_t i{ 0 }; i < m_n_layers; ++i ) {
             m_network[i] = layer_t<T>( m_neurons_per_layer[i] );
+            m_intermediate_state[i] =
+                output_layer_t<T>( m_neurons_per_layer[i] );
             for ( std::uint64_t j{ 0 }; j < m_neurons_per_layer[i]; ++j ) {
                 if ( i == 0 ) {
                     m_network[0][j] =
                         neuron_t<T>{ neuron_weight_t<T>{ static_cast<T>( 1 ) },
                                      0 };
-                }
-                else if ( i == 1 ) {
-                    m_network[1][j] =
-                        neuron_t<T>{ neuron_weight_t<T>( m_n_inputs ), 0 };
                 }
                 else {
                     m_network[i][j] = neuron_t<T>{
@@ -101,31 +110,52 @@ class NeuralNetwork
     [[nodiscard]] constexpr inline auto network() const noexcept {
         return m_network;
     }
+    [[nodiscard]] constexpr inline auto intermediate_state() const noexcept {
+        return m_intermediate_state;
+    }
 
     [[nodiscard]] constexpr inline auto
-    forward( const std::vector<T> & inputs ) const noexcept;
+    forward_pass( const std::vector<T> & inputs ) noexcept;
+    [[nodiscard]] constexpr inline auto
+    backward_pass( const std::vector<T> & labels ) noexcept;
 };
 
-template <weight_type T>
+template <Weight T>
 [[nodiscard]] constexpr inline auto
-NeuralNetwork<T>::forward( const std::vector<T> & inputs ) const noexcept {
-    std::vector<T> prev_layer_res{ inputs };
-    for ( const auto & [layer, activation_func] :
-          std::views::zip( m_network, m_activation_functions )
-              | std::views::drop( 1 ) ) {
-        std::vector<T> tmp( layer.size() );
-        for ( const auto & [pair, x] : std::views::zip( layer, tmp ) ) {
+NeuralNetwork<T>::forward_pass( const std::vector<T> & inputs ) noexcept {
+    assert( inputs.size() == m_n_inputs );
+    m_intermediate_state[0] = inputs;
+    const auto layer_view{ std::views::zip( m_network, m_intermediate_state,
+                                            m_activation_functions )
+                           | std::views::drop( 1 ) | std::views::enumerate };
+    for ( const auto & [i, layer_data] : layer_view ) {
+        const auto & [layer, output_layer, activation_func] = layer_data;
+        const auto & prev_layer{ m_intermediate_state[i] };
+
+        for ( const auto & [pair, output] :
+              std::views::zip( layer, output_layer ) ) {
             const auto & [weights, bias] = pair;
-            x = std::inner_product( weights.cbegin(), weights.cend(),
-                                    prev_layer_res.cbegin(),
-                                    static_cast<T>( 0 ) )
+            output =
+                std::inner_product( weights.cbegin(), weights.cend(),
+                                    prev_layer.cbegin(), static_cast<T>( 0 ) )
                 + bias;
         }
-        prev_layer_res.resize( tmp.size() );
-        std::ranges::transform( tmp.cbegin(), tmp.cend(),
-                                prev_layer_res.begin(), activation_func );
+
+        std::ranges::transform( output_layer.cbegin(), output_layer.cend(),
+                                output_layer.begin(), activation_func );
     }
-    return prev_layer_res;
 }
+
+template <Weight T>
+[[nodiscard]] constexpr inline auto
+NeuralNetwork<T>::backward_pass( const std::vector<T> & labels ) noexcept {
+    auto       expected_output{ labels };
+    const auto layer_view{ std::views::zip( m_network, m_intermediate_state,
+                                            m_activation_gradients )
+                           | std::views::drop( 1 ) | std::views::reverse };
+
+    for ( const auto & [layer, output_layer, gradient_func] : layer_view ) {}
+}
+
 
 } // namespace neural
