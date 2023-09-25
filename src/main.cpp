@@ -1,6 +1,11 @@
+// #include "Eigen/Core"
+#include "Eigen/Dense"
 #include "neural_network.hpp"
 
 #include <iostream>
+
+using namespace neural;
+using namespace neural::activation;
 
 int
 main() {
@@ -8,10 +13,9 @@ main() {
 
     neural::NeuralNetwork<double> test(
         { 3, 4, 5, 6, 3 },
-        { neural::sigmoid<double>, neural::sigmoid<double>,
-          neural::sigmoid<double>, neural::sigmoid<double> },
-        { neural::d_sigmoid<double>, neural::d_sigmoid<double>,
-          neural::d_sigmoid<double>, neural::d_sigmoid<double> } );
+        { sigmoid<double>, sigmoid<double>, sigmoid<double>, softmax<double> },
+        { d_sigmoid<double>, d_sigmoid<double>, d_sigmoid<double>,
+          d_softmax<double> } );
 
     const auto shape = test.shape();
 
@@ -26,5 +30,5 @@ main() {
         }
         std::cout << std::endl;
     }
-    test.backward_pass( {} );
+    // test.backward_pass( {} );
 }

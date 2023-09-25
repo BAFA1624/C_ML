@@ -36,6 +36,6 @@ template <Weight T>
 using output_network_t = std::vector<output_layer_t<T>>;
 
 template <Weight T>
-using function_t = std::function<T( const T )>;
+using function_t = std::function<std::vector<T>( const std::vector<T> & )>;
 
 } // namespace neural

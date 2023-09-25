@@ -10,10 +10,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_FLAGS_DEBUG "-Wall -Wextra -Wconversion -pedantic -O0 -ggdb")
-set(CMAKE_CXX_FLAGS_RELEASE "-Wall -Wextra -pedantic -Wconversion -Werror -O3")
+set(CMAKE_CXX_FLAGS_RELEASE "-Wno-error=class-memaccess -Wall -Wextra -pedantic -Wconversion -Werror -O3")
 
 add_subdirectory(src)
 include_directories(./include)
+include_directories(~/include)
 
 add_executable(main src/main.cpp)
 target_link_libraries(main d_classic)

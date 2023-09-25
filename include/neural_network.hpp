@@ -1,5 +1,6 @@
 #pragma once // NEURAL_NETWORK_HPP
 
+#include "Eigen/Core"
 #include "neural_activation.hpp"
 #include "neural_util.hpp"
 
@@ -31,6 +32,7 @@ class NeuralNetwork
     std::vector<std::uint64_t> m_neurons_per_layer;
     std::vector<function_t<T>> m_activation_functions;
     std::vector<function_t<T>> m_activation_gradients;
+    function_t<T>              m_cost_function;
 
     network_t<T>        m_network;
     output_network_t<T> m_intermediate_state;
@@ -47,12 +49,12 @@ class NeuralNetwork
         // Must be an activation function for each layer
         // (except the input layer)
         m_activation_functions = std::vector<function_t<T>>{};
-        m_activation_functions.push_back( linear<T> );
+        m_activation_functions.push_back( activation::linear<T> );
         m_activation_functions.insert( m_activation_functions.end(),
                                        activation_functions.cbegin(),
                                        activation_functions.cend() );
         m_activation_gradients = std::vector<function_t<T>>{};
-        m_activation_gradients.push_back( linear<T> );
+        m_activation_gradients.push_back( activation::linear<T> );
         m_activation_gradients.insert( m_activation_gradients.end(),
                                        activation_gradients.cbegin(),
                                        activation_gradients.cend() );
@@ -141,8 +143,7 @@ NeuralNetwork<T>::forward_pass( const std::vector<T> & inputs ) noexcept {
                 + bias;
         }
 
-        std::ranges::transform( output_layer.cbegin(), output_layer.cend(),
-                                output_layer.begin(), activation_func );
+        output_layer = activation_func( output_layer );
     }
 }
 
@@ -154,7 +155,16 @@ NeuralNetwork<T>::backward_pass( const std::vector<T> & labels ) noexcept {
                                             m_activation_gradients )
                            | std::views::drop( 1 ) | std::views::reverse };
 
-    for ( const auto & [layer, output_layer, gradient_func] : layer_view ) {}
+    for ( const auto & [layer, output_layer, gradient_func] : layer_view ) {
+        for ( const auto & [neuron, output] :
+              std::views::zip( layer, output_layer ) ) {
+            const auto & [weights, bias] = neuron;
+            // Calculate error per weight & bias
+            // Calculate gradients
+            // Adjust weights & bias
+            // Update expected output for next layer
+        }
+    }
 }
 
 
