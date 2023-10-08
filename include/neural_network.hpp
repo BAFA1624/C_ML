@@ -32,7 +32,7 @@ class NeuralNetwork
     std::vector<std::uint64_t> m_neurons_per_layer;
     std::vector<function_t<T>> m_activation_functions;
     std::vector<function_t<T>> m_activation_gradients;
-    function_t<T>              m_cost_function;
+    cost_function_t<T>         m_cost_function;
 
     network_t<T>        m_network;
     output_network_t<T> m_intermediate_state;
@@ -41,13 +41,15 @@ class NeuralNetwork
     NeuralNetwork( const std::vector<std::uint64_t> & neurons_per_layer,
                    const std::vector<function_t<T>> & activation_functions,
                    const std::vector<function_t<T>> & activation_gradients,
-                   const std::time_t                  seed = 1 ) :
+                   const cost_function_t<T> & cost_function = cost::SSR<T>,
+                   const std::time_t          seed = 1 ) :
         m_n_inputs( neurons_per_layer.front() ),
         m_n_outputs( neurons_per_layer.back() ),
         m_n_layers( neurons_per_layer.size() ),
-        m_neurons_per_layer( neurons_per_layer ) {
-        // Must be an activation function for each layer
-        // (except the input layer)
+        m_neurons_per_layer( neurons_per_layer ),
+        m_cost_function( cost_function ) {
+        // Must be an activation function for each layer (except the input
+        // layer)
         m_activation_functions = std::vector<function_t<T>>{};
         m_activation_functions.push_back( activation::linear<T> );
         m_activation_functions.insert( m_activation_functions.end(),
@@ -69,28 +71,13 @@ class NeuralNetwork
         m_intermediate_state = output_network_t<T>( m_n_layers );
 
         // Initializing layers
+        std::uint64_t prev_layer_sz{ m_n_inputs };
         for ( std::uint64_t i{ 0 }; i < m_n_layers; ++i ) {
-            m_network[i] = layer_t<T>( m_neurons_per_layer[i] );
-            m_intermediate_state[i] =
-                output_layer_t<T>( m_neurons_per_layer[i] );
-            for ( std::uint64_t j{ 0 }; j < m_neurons_per_layer[i]; ++j ) {
-                if ( i == 0 ) {
-                    m_network[0][j] =
-                        neuron_t<T>{ neuron_weight_t<T>{ static_cast<T>( 1 ) },
-                                     0 };
-                }
-                else {
-                    m_network[i][j] = neuron_t<T>{
-                        neuron_weight_t<T>( m_neurons_per_layer[i - 1] ), 0
-                    };
-                }
-                // Randomly initialize each weight
-                auto & [network_weights, neuron_bias] = m_network[i][j];
-                std::generate(
-                    network_weights.begin(), network_weights.end(),
-                    []() { return static_cast<T>( std::rand() ) / RAND_MAX; } );
-                neuron_bias = static_cast<T>( std::rand() ) / RAND_MAX;
-            }
+            const auto n_neurons{ m_neurons_per_layer[i] };
+            m_network[i] = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>(
+                prev_layer_sz, n_neurons );
+            m_network[i].setRandom();
+            prev_layer_sz = n_neurons;
         }
     }
 
@@ -109,60 +96,83 @@ class NeuralNetwork
     [[nodiscard]] constexpr inline auto activation_funcs() const noexcept {
         return m_activation_functions;
     }
-    [[nodiscard]] constexpr inline auto network() const noexcept {
+    [[nodiscard]] constexpr inline auto cost_func() const noexcept {
+        return m_cost_function;
+    }
+    [[nodiscard]] constexpr inline auto & network() const noexcept {
         return m_network;
     }
-    [[nodiscard]] constexpr inline auto intermediate_state() const noexcept {
+    [[nodiscard]] constexpr inline auto & intermediate_state() const noexcept {
         return m_intermediate_state;
     }
+    [[nodiscard]] constexpr inline auto &
+    layer( const std::uint64_t i ) const noexcept {
+        return m_network.at( i );
+    }
 
-    [[nodiscard]] constexpr inline auto
-    forward_pass( const std::vector<T> & inputs ) noexcept;
+    [[nodiscard]] constexpr inline Eigen::Matrix<T, Eigen::Dynamic,
+                                                 Eigen::Dynamic>
+    forward_pass( const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> &
+                      inputs ) noexcept;
     [[nodiscard]] constexpr inline auto
     backward_pass( const std::vector<T> & labels ) noexcept;
 };
 
 template <Weight T>
-[[nodiscard]] constexpr inline auto
-NeuralNetwork<T>::forward_pass( const std::vector<T> & inputs ) noexcept {
-    assert( inputs.size() == m_n_inputs );
-    m_intermediate_state[0] = inputs;
-    const auto layer_view{ std::views::zip( m_network, m_intermediate_state,
-                                            m_activation_functions )
-                           | std::views::drop( 1 ) | std::views::enumerate };
-    for ( const auto & [i, layer_data] : layer_view ) {
-        const auto & [layer, output_layer, activation_func] = layer_data;
-        const auto & prev_layer{ m_intermediate_state[i] };
+[[nodiscard]] constexpr inline Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>
+NeuralNetwork<T>::forward_pass(
+    const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> & inputs ) noexcept {
+    Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> input( inputs.rows(),
+                                                            inputs.cols() );
+    input << inputs;
+    assert( input.cols() == m_network.front().rows() );
+    m_intermediate_state[0] = input;
+    const auto view = std::views::zip( m_network, m_intermediate_state,
+                                       m_activation_functions )
+                      | std::views::drop( 1 );
+    for ( const auto & [i, layers] : view | std::views::enumerate ) {
+        auto & [network_layer, output_layer, act_func] = layers;
 
-        for ( const auto & [pair, output] :
-              std::views::zip( layer, output_layer ) ) {
-            const auto & [weights, bias] = pair;
-            output =
-                std::inner_product( weights.cbegin(), weights.cend(),
-                                    prev_layer.cbegin(), static_cast<T>( 0 ) )
-                + bias;
-        }
+        input = input * network_layer;
+        input = act_func( input );
 
-        output_layer = activation_func( output_layer );
+        output_layer = input;
     }
+
+    return input;
 }
 
 template <Weight T>
 [[nodiscard]] constexpr inline auto
 NeuralNetwork<T>::backward_pass( const std::vector<T> & labels ) noexcept {
     auto       expected_output{ labels };
-    const auto layer_view{ std::views::zip( m_network, m_intermediate_state,
+    const auto layer_info{ std::views::zip( m_network, m_intermediate_state,
                                             m_activation_gradients )
                            | std::views::drop( 1 ) | std::views::reverse };
+    const auto layer_info_view{ layer_info | std::views::slide( 2 ) };
 
-    for ( const auto & [layer, output_layer, gradient_func] : layer_view ) {
-        for ( const auto & [neuron, output] :
-              std::views::zip( layer, output_layer ) ) {
-            const auto & [weights, bias] = neuron;
+    for ( const auto & [i, layers] : layer_info_view | std::views::enumerate ) {
+        const auto & nxt_layer = layers[0];
+        const auto & cur_layer = layers[1];
+        const auto & [nxt_weights, nxt_output, nxt_gradient] = nxt_layer;
+        const auto & [cur_weights, cur_output, cur_gradient] = cur_layer;
+
+        const auto cost{ m_cost_function( cur_output, expected_output ) };
+    }
+
+    for ( const auto & [layer, output_layer, gradient_func] :
+          layer_view | std::views::enumerate ) {
+        for ( const auto & [j, layers] :
+              std::views::zip( layer, output_layer ) | std::views::enumerate ) {
+            const auto & [layer, output_layer] = layers;
             // Calculate error per weight & bias
+            const auto cost = m_cost_function( output_layer, expected_output );
             // Calculate gradients
+            const auto d_weights = 2. * gradient_func( layer );
             // Adjust weights & bias
+
             // Update expected output for next layer
+            expected_output = ;
         }
     }
 }
