@@ -19,8 +19,16 @@
 #include <ranges>
 #include <vector>
 
+
+
 namespace neural
 {
+
+template <Weight T>
+constexpr inline std::tuple<int, int>
+shape( const layer_t<T> & m ) {
+    return std::tuple<int, int>{ m.rows(), m.cols() };
+}
 
 template <Weight T>
 class NeuralNetwork
@@ -33,6 +41,8 @@ class NeuralNetwork
     std::vector<function_t<T>> m_activation_functions;
     std::vector<function_t<T>> m_activation_gradients;
     cost_function_t<T>         m_cost_function;
+    cost_function_t<T>         m_cost_gradient;
+    T                          m_eta;
 
     network_t<T>        m_network;
     output_network_t<T> m_intermediate_state;
@@ -42,12 +52,16 @@ class NeuralNetwork
                    const std::vector<function_t<T>> & activation_functions,
                    const std::vector<function_t<T>> & activation_gradients,
                    const cost_function_t<T> & cost_function = cost::SSR<T>,
+                   const cost_function_t<T> & cost_gradient = cost::d_SSR<T>,
+                   const T                    eta = static_cast<T>( 0.01 ),
                    const std::time_t          seed = 1 ) :
         m_n_inputs( neurons_per_layer.front() ),
         m_n_outputs( neurons_per_layer.back() ),
         m_n_layers( neurons_per_layer.size() ),
         m_neurons_per_layer( neurons_per_layer ),
-        m_cost_function( cost_function ) {
+        m_cost_function( cost_function ),
+        m_cost_gradient( cost_gradient ),
+        m_eta( eta ) {
         // Must be an activation function for each layer (except the input
         // layer)
         m_activation_functions = std::vector<function_t<T>>{};
@@ -99,6 +113,9 @@ class NeuralNetwork
     [[nodiscard]] constexpr inline auto cost_func() const noexcept {
         return m_cost_function;
     }
+    [[nodiscard]] constexpr inline auto cost_gradient() const noexcept {
+        return m_cost_gradient;
+    }
     [[nodiscard]] constexpr inline auto & network() const noexcept {
         return m_network;
     }
@@ -115,7 +132,7 @@ class NeuralNetwork
     forward_pass( const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> &
                       inputs ) noexcept;
     [[nodiscard]] constexpr inline auto
-    backward_pass( const std::vector<T> & labels ) noexcept;
+    backward_pass( const layer_t<T> & labels ) noexcept;
 };
 
 template <Weight T>
@@ -144,38 +161,60 @@ NeuralNetwork<T>::forward_pass(
 
 template <Weight T>
 [[nodiscard]] constexpr inline auto
-NeuralNetwork<T>::backward_pass( const std::vector<T> & labels ) noexcept {
-    auto       expected_output{ labels };
-    const auto layer_info{ std::views::zip( m_network, m_intermediate_state,
-                                            m_activation_gradients )
-                           | std::views::drop( 1 ) | std::views::reverse };
-    const auto layer_info_view{ layer_info | std::views::slide( 2 ) };
+NeuralNetwork<T>::backward_pass( const layer_t<T> & labels ) noexcept {
+    auto expected_output{ labels };
+    auto layer_info{ std::views::zip( m_network, m_intermediate_state,
+                                      m_activation_gradients )
+                     | std::views::reverse };
+    auto layer_info_view{ layer_info | std::views::slide( 2 ) };
+
+    auto d_input{ m_cost_gradient( m_intermediate_state.back(), labels ) };
+    // std::cout << "Cost: " << d_input << std::endl;
 
     for ( const auto & [i, layers] : layer_info_view | std::views::enumerate ) {
-        const auto & nxt_layer = layers[0];
-        const auto & cur_layer = layers[1];
+        // References to relevant layers
+        const auto & cur_layer = layers[0];
+        const auto & nxt_layer = layers[1];
         const auto & [nxt_weights, nxt_output, nxt_gradient] = nxt_layer;
         const auto & [cur_weights, cur_output, cur_gradient] = cur_layer;
 
-        const auto cost{ m_cost_function( cur_output, expected_output ) };
+        const auto d_cost{ m_cost_gradient( cur_output, expected_output ) };
+        const auto d_cur_output{ cur_gradient( cur_output ) };
+        const auto gradients{ d_input.cwiseProduct( d_cur_output ) };
+        const auto d_weights{ nxt_output.transpose() * gradients };
+        // std::cout << std::format( "d_weights ({},{}):\n", d_weights.rows(),
+        //                           d_weights.cols() )
+        //           << d_weights << std::endl;
+        const auto new_weights{ cur_weights - m_eta * d_weights };
+
+        // Update current layer's weights
+        cur_weights << new_weights;
+        // Update input gradients for next layer
+        d_input = gradients * cur_weights.transpose();
+
+        // std::cout << i << std::endl;
+        // std::cout << std::format( "d_cost ({}, {})", d_cost.rows(),
+        //                           d_cost.cols() )
+        //           << std::endl;
+        // std::cout << std::format( "gradients ({}, {})", gradients.rows(),
+        //                           gradients.cols() )
+        //           << std::endl;
+        // std::cout << std::format( "d_weights ({}, {})", d_weights.rows(),
+        //                           d_weights.cols() )
+        //           << std::endl;
+        // std::cout << std::format( "nxt_output ({}, {})", nxt_output.rows(),
+        //                           nxt_output.cols() )
+        //           << std::endl;
+        // std::cout << std::endl;
+
+        // Update output gradient for next layer
+        // d_cost =
+
+        // TODO: REMOVE TEMPORARY SOL. TO MAKE FULL LOOP RUN
+        expected_output = layer_t<T>( nxt_output.rows(), nxt_output.cols() );
+        expected_output.setRandom();
     }
 
-    for ( const auto & [layer, output_layer, gradient_func] :
-          layer_view | std::views::enumerate ) {
-        for ( const auto & [j, layers] :
-              std::views::zip( layer, output_layer ) | std::views::enumerate ) {
-            const auto & [layer, output_layer] = layers;
-            // Calculate error per weight & bias
-            const auto cost = m_cost_function( output_layer, expected_output );
-            // Calculate gradients
-            const auto d_weights = 2. * gradient_func( layer );
-            // Adjust weights & bias
-
-            // Update expected output for next layer
-            expected_output = ;
-        }
-    }
+    // std::cout << std::endl;
 }
-
-
 } // namespace neural

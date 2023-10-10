@@ -16,14 +16,14 @@ namespace activation
 {
 
 template <Weight T>
-constexpr inline Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>
-linear( const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> & m ) {
+constexpr inline layer_t<T>
+linear( const layer_t<T> & m ) {
     return m;
 }
 
 template <Weight T>
-constexpr inline Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>
-sigmoid( const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> & m ) {
+constexpr inline layer_t<T>
+sigmoid( const layer_t<T> & m ) {
     return m.unaryExpr( []( const T x ) {
         return static_cast<T>( 1 ) / ( static_cast<T>( 1 ) + std::exp( -x ) );
     } );
@@ -38,21 +38,26 @@ d_sigmoid( const layer_t<T> & m ) {
 
 template <Weight T>
 constexpr inline layer_t<T>
+relu( const layer_t<T> & m ) {
+    return m.unaryExpr(
+        []( const T x ) { return std::max( x, static_cast<T>( 0 ) ); } );
+}
+
+template <Weight T>
+constexpr inline layer_t<T>
+d_relu( const layer_t<T> & m ) {
+    return m.unaryExpr( []( const T x ) {
+        return static_cast<T>( ( x > static_cast<T>( 0 ) ) ? 1 : 0 );
+    } );
+}
+
+template <Weight T>
+constexpr inline layer_t<T>
 softmax( const layer_t<T> & m ) {
     const auto m_exp = m.unaryExpr( []( const T x ) { return std::exp( x ); } );
     const auto m_exp_sum = m_exp.rowwise().sum();
-
-    // std::cout << "m:\n" << m << std::endl;
-    // std::cout << "m_exp:\n" << m_exp << std::endl;
-    // std::cout << "m_exp_sum:\n" << m_exp_sum << std::endl;
-
-    auto result = layer_t<T>( m.rows(), m.cols() );
+    auto       result = layer_t<T>( m.rows(), m.cols() );
     for ( Eigen::Index i{ 0 }; i < m_exp_sum.rows(); ++i ) {
-        // std::cout << "row: " << i << std::endl;
-        // std::cout << "\t-> (" << m_exp.row( i ) << ")" << std::endl;
-        // std::cout << "\tsum -> " << m_exp_sum( i, 0 );
-        // std::cout << "\tval -> " << m_exp.row( i ) / m_exp_sum( i, 0 )
-        //           << std::endl;
         result.row( i ) = m_exp.row( i ) / m_exp_sum( i, 0 );
     }
 
@@ -120,6 +125,12 @@ SSR( const layer_t<T> & predictions, const layer_t<T> & labels ) {
     return ( labels - predictions ).unaryExpr( []( const T x ) {
         return std::pow( x, 2 );
     } );
+}
+
+template <Weight T>
+constexpr inline layer_t<T>
+d_SSR( const layer_t<T> & predictions, const layer_t<T> & labels ) {
+    return static_cast<T>( -2 ) * ( labels - predictions );
 }
 
 template <Weight T>

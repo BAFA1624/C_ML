@@ -50,3 +50,7 @@ build/*
 .vscode/*
 
 .cache
+
+debug/*
+release/*
+
