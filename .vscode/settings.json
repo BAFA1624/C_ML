@@ -1,7 +1,0 @@
-{
-    "[python]": {
-        "editor.defaultFormatter": "ms-python.black-formatter"
-    },
-    "python.formatting.provider": "none",
-    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
-}
