@@ -53,6 +53,25 @@ d_relu( const layer_t<T> & m ) {
 
 template <Weight T>
 constexpr inline layer_t<T>
+tanh( const layer_t<T> & m ) {
+    return m.unaryExpr( []( const T x ) {
+        const auto e_x{ std::exp( x ) }, e_minus_x{ std::exp( -x ) };
+        return ( e_x - e_minus_x ) / ( e_x + e_minus_x );
+    } );
+}
+
+template <Weight T>
+constexpr inline layer_t<T>
+d_tanh( const layer_t<T> & m ) {
+    return m.unaryExpr( []( const T x ) {
+        const auto e_x{ std::exp( x ) }, e_minus_x{ std::exp( -x ) };
+        const auto tanh{ ( e_x - e_minus_x ) / ( e_x + e_minus_x ) };
+        return static_cast<T>( 1. ) - std::pow( tanh, 2 );
+    } );
+}
+
+template <Weight T>
+constexpr inline layer_t<T>
 softmax( const layer_t<T> & m ) {
     const auto m_exp = m.unaryExpr( []( const T x ) { return std::exp( x ); } );
     const auto m_exp_sum = m_exp.rowwise().sum();

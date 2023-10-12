@@ -25,12 +25,6 @@ namespace neural
 {
 
 template <Weight T>
-constexpr inline std::tuple<int, int>
-shape( const layer_t<T> & m ) {
-    return std::tuple<int, int>{ m.rows(), m.cols() };
-}
-
-template <Weight T>
 class NeuralNetwork
 {
     private:
@@ -79,17 +73,36 @@ class NeuralNetwork
         // Seed random number generator
         std::srand( static_cast<unsigned>( seed ) );
 
-        // Initializing network & intermediate_state in the same
+        // Initializing network, bisaes & intermediate_state in the same
         // shape for back propagation using the outputs of each layer
         m_network = network_t<T>( m_n_layers );
         m_intermediate_state = output_network_t<T>( m_n_layers );
 
+        /*
+        auto layer_info{ std::views::zip( m_network, m_intermediate_state,
+                                   m_activation_gradients )
+                  | std::views::reverse };
+         auto layer_info_view{ layer_info | std::views::slide( 2 ) };
+         */
+
         // Initializing layers
+        /*const auto layer_info{ std::views::zip( m_neurons_per_layer,
+        m_network, m_intermediate_state ) }; for ( const auto & layer_data :
+        layer_info | std::views::slide( 2 ) ) { const auto & prev_layers =
+        layer_data[0]; const auto & cur_layers = layer_data[1];
+
+            const auto & [prev_n_neurons, prev_layer, prev_outputs] =
+                prev_layers;
+            const auto & [cur_n_neurons, cur_layer, cur_outputs] = cur_layers;
+
+            cur_layer = layer_t<T>::Random( prev_n_neurons + 1, cur_n_neurons );
+        }*/
         std::uint64_t prev_layer_sz{ m_n_inputs };
+
         for ( std::uint64_t i{ 0 }; i < m_n_layers; ++i ) {
             const auto n_neurons{ m_neurons_per_layer[i] };
             m_network[i] = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>(
-                prev_layer_sz, n_neurons );
+                prev_layer_sz + 1, n_neurons );
             m_network[i].setRandom();
             prev_layer_sz = n_neurons;
         }
@@ -129,47 +142,100 @@ class NeuralNetwork
 
     [[nodiscard]] constexpr inline Eigen::Matrix<T, Eigen::Dynamic,
                                                  Eigen::Dynamic>
-    forward_pass( const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> &
-                      inputs ) noexcept;
+    forward_pass(
+        const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> & inputs,
+        const std::size_t V = 0 ) noexcept;
     [[nodiscard]] constexpr inline auto
-    backward_pass( const layer_t<T> & labels ) noexcept;
+    backward_pass( const layer_t<T> & labels,
+                   const std::size_t  V = 0 ) noexcept;
 };
 
 template <Weight T>
 [[nodiscard]] constexpr inline Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>
 NeuralNetwork<T>::forward_pass(
-    const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> & inputs ) noexcept {
+    const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> & inputs,
+    const std::size_t                                        V ) noexcept {
     Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> input( inputs.rows(),
-                                                            inputs.cols() );
-    input << inputs;
+                                                            inputs.cols() + 1 );
+    // std::cout << std::format(
+    //     "input ({}, {}), m_network.front() ({}, {})\n", input.rows(),
+    //     input.cols(), m_network.front().rows(), m_network.front().cols() )
+    //           << std::endl;
     assert( input.cols() == m_network.front().rows() );
+    const auto bias{ layer_t<T>::Constant( input.rows(), 1, 1. ) };
+    input << inputs, bias;
     m_intermediate_state[0] = input;
     const auto view = std::views::zip( m_network, m_intermediate_state,
                                        m_activation_functions )
                       | std::views::drop( 1 );
+    if ( V )
+        std::cout << "Forward pass:\n";
     for ( const auto & [i, layers] : view | std::views::enumerate ) {
         auto & [network_layer, output_layer, act_func] = layers;
+        const auto updated_layer{ act_func( input * network_layer ) };
+        output_layer = layer_t<T>::Constant(
+            input.rows(), network_layer.cols() + 1, static_cast<T>( 1. ) );
+        // std::cout << i << std::endl;
 
-        input = input * network_layer;
-        input = act_func( input );
+        // std::cout << std::format( "network_layer ({}, {})\n",
+        //                           network_layer.rows(), network_layer.cols()
+        //                           );
 
-        output_layer = input;
+        // std::cout << std::format( "updated_layer ({}, {})\n",
+        //                           updated_layer.rows(), updated_layer.cols()
+        //                           );
+        // std::cout << std::endl;
+        output_layer.leftCols( output_layer.cols() - 1 )
+            << act_func( input * network_layer );
+        if ( V ) {
+            std::cout << i << "\n";
+            std::cout << std::format( "input ({}, {})\n", input.rows(),
+                                      input.cols() )
+                      << input << "\n";
+            if ( V > 1 ) {
+                std::cout << std::format( "network_layer ({}, {})\n",
+                                          network_layer.rows(),
+                                          network_layer.cols() )
+                          << network_layer << "\n";
+            }
+            std::cout << std::format( "output_layer ({}, {})\n",
+                                      output_layer.rows(), output_layer.cols() )
+                      << output_layer << "\n";
+        }
+        input = output_layer;
+
+
+        // output_layer = act_func( input * network_layer );
+        // input = layer_t<T>::Constant( updated_layer.rows(),
+        //                               updated_layer.cols() + 1, 1. );
+        // input.leftCols( input.cols() - 1 ) << updated_layer;
+        // input = layer_t<T>::Constant( output_layer.rows(),
+        //                              output_layer.cols() + 1, 1. );
+        // input.leftCols( input.cols() - 1 ) << output_layer;
+    }
+    if ( V ) {
+        std::cout << std::format( "output ({}, {})\n", input.rows(),
+                                  input.cols() )
+                  << input << "\n";
+        std::cout << "Done.\n" << std::endl;
     }
 
-    return input;
+    return input.leftCols( input.cols() - 1 );
 }
 
 template <Weight T>
 [[nodiscard]] constexpr inline auto
-NeuralNetwork<T>::backward_pass( const layer_t<T> & labels ) noexcept {
-    auto expected_output{ labels };
+NeuralNetwork<T>::backward_pass( const layer_t<T> & labels,
+                                 const std::size_t  V ) noexcept {
+    layer_t<T> expected_output{ layer_t<T>::Constant(
+        labels.rows(), labels.cols() + 1, static_cast<T>( 1. ) ) };
+    expected_output.col( 0 ) << labels;
     auto layer_info{ std::views::zip( m_network, m_intermediate_state,
                                       m_activation_gradients )
                      | std::views::reverse };
     auto layer_info_view{ layer_info | std::views::slide( 2 ) };
-
-    auto d_input{ m_cost_gradient( m_intermediate_state.back(), labels ) };
-    // std::cout << "Cost: " << d_input << std::endl;
+    if ( V )
+        std::cout << "Backward pass:\n";
 
     for ( const auto & [i, layers] : layer_info_view | std::views::enumerate ) {
         // References to relevant layers
@@ -178,42 +244,58 @@ NeuralNetwork<T>::backward_pass( const layer_t<T> & labels ) noexcept {
         const auto & [nxt_weights, nxt_output, nxt_gradient] = nxt_layer;
         const auto & [cur_weights, cur_output, cur_gradient] = cur_layer;
 
+        // std::cout << std::format( "cur_output ({}, {})\n", cur_output.rows(),
+        //                           cur_output.cols() );
+        // std::cout << std::format( "expected_output ({}, {})\n",
+        //                           expected_output.rows(),
+        //                           expected_output.cols() );
         const auto d_cost{ m_cost_gradient( cur_output, expected_output ) };
         const auto d_cur_output{ cur_gradient( cur_output ) };
-        const auto gradients{ d_input.cwiseProduct( d_cur_output ) };
+        // std::cout << std::format( "d_cur_output ({}, {})\n",
+        //                           d_cur_output.rows(), d_cur_output.cols() );
+        const auto gradients{ d_cost.cwiseProduct( d_cur_output ) };
+        // std::cout << std::format( "gradients ({}, {})\n", gradients.rows(),
+        //                           gradients.cols() );
+        // std::cout << std::format( "nxt_output ({}, {})\n", nxt_output.rows(),
+        //                           nxt_output.cols() );
         const auto d_weights{ nxt_output.transpose() * gradients };
-        // std::cout << std::format( "d_weights ({},{}):\n", d_weights.rows(),
-        //                           d_weights.cols() )
-        //           << d_weights << std::endl;
-        const auto new_weights{ cur_weights - m_eta * d_weights };
+        const auto new_weights{
+            cur_weights - m_eta * d_weights.leftCols( d_weights.cols() - 1 )
+        };
+        // std::cout << std::format( "d_weights ({}, {})\n", d_weights.rows(),
+        //                           d_weights.cols() );
+        if ( V ) {
+            if ( V > 1 ) {
+                std::cout << std::format( "cur_weights ({}, {})\n",
+                                          cur_weights.rows(),
+                                          cur_weights.cols() )
+                          << cur_weights << "\n";
+                std::cout << std::format( "new_weights ({}, {})\n",
+                                          new_weights.rows(),
+                                          new_weights.cols() )
+                          << new_weights << "\n";
+            }
+            std::cout << "Weight diff:\n" << new_weights - cur_weights << "\n";
+        }
 
         // Update current layer's weights
         cur_weights << new_weights;
         // Update input gradients for next layer
-        d_input = gradients * cur_weights.transpose();
-
-        // std::cout << i << std::endl;
-        // std::cout << std::format( "d_cost ({}, {})", d_cost.rows(),
-        //                           d_cost.cols() )
-        //           << std::endl;
-        // std::cout << std::format( "gradients ({}, {})", gradients.rows(),
-        //                           gradients.cols() )
-        //           << std::endl;
-        // std::cout << std::format( "d_weights ({}, {})", d_weights.rows(),
-        //                           d_weights.cols() )
-        //           << std::endl;
-        // std::cout << std::format( "nxt_output ({}, {})", nxt_output.rows(),
-        //                           nxt_output.cols() )
-        //           << std::endl;
-        // std::cout << std::endl;
-
-        // Update output gradient for next layer
-        // d_cost =
+        // expected_output = layer_t<T>( gradients.rows(), cur_weights.rows() );
+        expected_output = gradients.leftCols( gradients.cols() - 1 )
+                          * cur_weights.transpose();
+        // expected_output = layer_t<T>{ gradients * cur_weights.transpose() };
+        //  expected_output = gradients * cur_weights.transpose();
+        // std::cout << std::format( "expected_output ({}, {})\n",
+        //                          expected_output.rows(),
+        //                          expected_output.cols() );
 
         // TODO: REMOVE TEMPORARY SOL. TO MAKE FULL LOOP RUN
-        expected_output = layer_t<T>( nxt_output.rows(), nxt_output.cols() );
-        expected_output.setRandom();
+        // expected_output = layer_t<T>( nxt_output.rows(), nxt_output.cols() );
+        // expected_output.setRandom();
     }
+    if ( V )
+        std::cout << "Done.\n" << std::endl;
 
     // std::cout << std::endl;
 }
