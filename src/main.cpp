@@ -40,8 +40,10 @@ int
 main() {
     std::cout << "Creating NeuralNetwork:" << std::endl;
     neural::NeuralNetwork<double> test(
-        { 1, 8, 8, 1 }, { sigmoid<double>, sigmoid<double>, sigmoid<double> },
-        { d_sigmoid<double>, d_sigmoid<double>, d_sigmoid<double> },
+        { 1, 10, 10, 10, 1 },
+        { sigmoid<double>, sigmoid<double>, sigmoid<double>, sigmoid<double> },
+        { d_sigmoid<double>, d_sigmoid<double>, d_sigmoid<double>,
+          d_sigmoid<double> },
         cost::SSR<double>, cost::d_SSR<double>, 0.005 );
     std::cout << "Done." << std::endl;
 
@@ -49,7 +51,7 @@ main() {
     const auto labels = gen_f_labels<double>( input );
 
     // const std::size_t epochs{ 10000 };
-    const std::size_t epochs{ 1 };
+    const std::size_t epochs{ 100 };
 
     std::cout << "Training..." << std::endl;
     for ( std::size_t i{ 0 }; i < epochs; ++i ) {
@@ -78,12 +80,13 @@ main() {
     }
     std::cout << "Done." << std::endl;
 
-    const double x{ 0 }, dx{ 0.06 };
-    for ( std::size_t i{ 0 }; i < 100; ++i ) {
+    std::cout << "f(x) = 5 * sin(x)\t\t\tprediction\tcost:\n";
+    const double x{ 0 }, dx{ 0.3 };
+    for ( std::size_t i{ 0 }; i < 20; ++i ) {
         const double val{ x + static_cast<double>( i ) * dx };
         const auto   tmp{ layer_t<double>::Constant( 1, 1, val ) };
         const auto   cost{ cost::SSR<double>( test.forward_pass( tmp ), tmp ) };
-        std::cout << std::format( "f({}) = {}, {}\t(cost = {})\n", val,
+        std::cout << std::format( "f({}) = {}\t\t\t{}\t(cost = {})\n", val,
                                   f( val ), test.forward_pass( tmp )( 0, 0 ),
                                   cost( 0, 0 ) );
     }
