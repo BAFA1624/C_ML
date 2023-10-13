@@ -210,12 +210,11 @@ NeuralNetwork<T>::backward_pass( const layer_t<T> & labels,
     layer_t<T> expected_output{ layer_t<T>::Constant(
         labels.rows(), labels.cols() + 1, static_cast<T>( 1. ) ) };
     expected_output.leftCols( labels.cols() ) << labels;
-    assert( expected_output.rows() == m_intermediate_state.back().rows() );
-    assert( expected_output.cols() == m_intermediate_state.back().cols() );
-    auto layer_info{ std::views::zip( m_network, m_intermediate_state,
-                                      m_activation_gradients )
-                     | std::views::reverse };
-    auto layer_info_view{ layer_info | std::views::slide( 2 ) };
+    assert( expected_output.rows() == m_intermediate_state.back().rows()
+            && expected_output.cols() == m_intermediate_state.back().cols() );
+    auto layer_info_view{ std::views::zip( m_network, m_intermediate_state,
+                                           m_activation_gradients )
+                          | std::views::reverse | std::views::slide( 2 ) };
     if ( V )
         std::cout << "Backward pass:\n";
 
@@ -230,8 +229,11 @@ NeuralNetwork<T>::backward_pass( const layer_t<T> & labels,
         const auto d_cur_output{ cur_gradient( cur_output ) };
         const auto gradients{ d_cost.cwiseProduct( d_cur_output ) };
         const auto d_weights{ nxt_output.transpose() * gradients };
+        // const auto new_weights{
+        //     cur_weights - m_eta * d_weights.leftCols( d_weights.cols() - 1 )
+        // };
         const auto new_weights{
-            cur_weights - m_eta * d_weights.leftCols( d_weights.cols() - 1 )
+            cur_weights - m_eta * d_weights.leftCols( cur_weights.cols() )
         };
 
         // TODO: Remove when working.
@@ -252,8 +254,9 @@ NeuralNetwork<T>::backward_pass( const layer_t<T> & labels,
         // Update current layer's weights
         cur_weights << new_weights;
         // Update input gradients for next layer
-        expected_output = gradients.leftCols( gradients.cols() - 1 )
-                          * cur_weights.transpose();
+        // expected_output = gradients.leftCols( gradients.cols() - 1 )
+        expected_output =
+            gradients.leftCols( cur_weights.cols() ) * cur_weights.transpose();
     }
     if ( V )
         std::cout << "Done.\n" << std::endl;
