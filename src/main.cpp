@@ -27,6 +27,18 @@ gen_f_data( const T xmin, const T xmax, const std::size_t N ) {
 }
 
 template <Weight T>
+constexpr inline T
+OR( const T x1, const T x2 ) {
+    return ( x1 || x2 ) ? 1. : 0.;
+}
+
+template <Weight T>
+constexpr inline T
+AND( const T x1, const T x2 ) {
+    return ( x1 && x2 ) ? 1. : 0.;
+}
+
+template <Weight T>
 constexpr inline layer_t<T>
 gen_f_labels( const layer_t<T> & inputs ) {
     auto result = layer_t<T>( inputs.rows(), 1 );
@@ -40,54 +52,63 @@ int
 main() {
     std::cout << "Creating NeuralNetwork:" << std::endl;
     neural::NeuralNetwork<double> test(
-        { 1, 10, 10, 10, 1 },
-        { sigmoid<double>, sigmoid<double>, sigmoid<double>, sigmoid<double> },
-        { d_sigmoid<double>, d_sigmoid<double>, d_sigmoid<double>,
-          d_sigmoid<double> },
-        cost::SSR<double>, cost::d_SSR<double>, 0.005 );
+        { 2, 2, 1 }, { tanh<double>, tanh<double> },
+        { d_tanh<double>, d_tanh<double> }, cost::SSR<double>,
+        cost::d_SSR<double>, 0.0008 );
     std::cout << "Done." << std::endl;
 
-    const auto input = gen_f_data<double>( 0., 3.2, 1000 );
-    const auto labels = gen_f_labels<double>( input );
+    const auto f_input = gen_f_data<double>( 0., 1., 10 );
+    const auto f_labels = gen_f_labels<double>( f_input );
 
-    // const std::size_t epochs{ 10000 };
-    const std::size_t epochs{ 100 };
+    auto OR_samples{ layer_t<double>( 4, 2 ) };
+    OR_samples << 0, 0, 0, 1, 1, 0, 1, 1;
+    const auto AND_samples{ OR_samples };
+    const auto NAND_samples{ OR_samples };
+    const auto NOR_samples{ OR_samples };
+    const auto XOR_samples{ OR_samples };
 
-    std::cout << "Training..." << std::endl;
-    for ( std::size_t i{ 0 }; i < epochs; ++i ) {
-        std::cout << "epoch " << i + 1 << ":\n";
+    auto OR_labels{ layer_t<double>( 4, 1 ) };
+    auto AND_labels{ OR_labels };
+    auto NAND_labels{ OR_labels };
+    auto NOR_labels{ OR_labels };
+    auto XOR_labels{ OR_labels };
+    OR_labels << 0, 1, 1, 1;
+    AND_labels << 0, 0, 0, 1;
+    NAND_labels << 1, 1, 1, 0;
+    NOR_labels << 1, 0, 0, 0;
+    XOR_labels << 0, 1, 1, 0;
 
-        const auto initial_cost{ cost::SSR<double>(
-            labels, test.forward_pass( input ) ) };
+    const auto func_name{ "OR" };
+    const auto inputs{ OR_samples };
+    const auto labels{ OR_labels };
 
-        const layer_t<double> output = test.forward_pass( input, 2 );
-        test.backward_pass( labels, 2 );
+    const auto initial_cost{ cost::SSR<double>( labels,
+                                                test.forward_pass( inputs ) ) };
+    const auto initial_avg_cost{
+        initial_cost.sum()
+        / static_cast<double>( initial_cost.rows() * initial_cost.cols() )
+    };
+
+    for ( std::size_t i{ 2 }; i <= 2; ++i ) {
+        std::cout << "Training for " << i << " epochs..." << std::endl;
+        test.train( labels, inputs, i, 5 );
+        std::cout << "Done." << std::endl;
 
         const auto final_cost{ cost::SSR<double>(
-            labels, test.forward_pass( input ) ) };
-
-        const auto initial_avg_cost{
-            initial_cost.sum()
-            / static_cast<double>( initial_cost.rows() * initial_cost.cols() )
-        };
+            labels, test.forward_pass( inputs ) ) };
         const auto final_avg_cost{
             final_cost.sum()
             / static_cast<double>( final_cost.rows() * final_cost.cols() )
         };
-        std::cout << std::format( "Avg. cost: {} -> {}", initial_avg_cost,
-                                  final_avg_cost )
+        std::cout << std::format( "Avg. cost change: {} -> {}",
+                                  initial_avg_cost, final_avg_cost )
                   << std::endl;
-    }
-    std::cout << "Done." << std::endl;
 
-    std::cout << "f(x) = 5 * sin(x)\t\t\tprediction\tcost:\n";
-    const double x{ 0 }, dx{ 0.3 };
-    for ( std::size_t i{ 0 }; i < 20; ++i ) {
-        const double val{ x + static_cast<double>( i ) * dx };
-        const auto   tmp{ layer_t<double>::Constant( 1, 1, val ) };
-        const auto   cost{ cost::SSR<double>( test.forward_pass( tmp ), tmp ) };
-        std::cout << std::format( "f({}) = {}\t\t\t{}\t(cost = {})\n", val,
-                                  f( val ), test.forward_pass( tmp )( 0, 0 ),
-                                  cost( 0, 0 ) );
+        std::cout << std::format( "{}:", func_name ) << std::endl;
+        for ( Eigen::Index i{ 0 }; i < inputs.rows(); ++i ) {
+            std::cout << std::format(
+                "{} || {} -> {}\t({})\n", inputs( i, 0 ), inputs( i, 1 ),
+                labels( i, 0 ), test.forward_pass( inputs.row( i ) )( 0, 0 ) );
+        }
     }
 }

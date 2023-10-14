@@ -53,6 +53,22 @@ d_relu( const layer_t<T> & m ) {
 
 template <Weight T>
 constexpr inline layer_t<T>
+lrelu( const layer_t<T> & m ) {
+    return m.unaryExpr( []( const T x ) {
+        return ( x >= static_cast<T>( 0. ) ) ? x : static_cast<T>( 0.01 ) * x;
+    } );
+}
+
+template <Weight T>
+constexpr inline layer_t<T>
+d_lrelu( const layer_t<T> & m ) {
+    return m.unaryExpr( []( const T x ) {
+        return static_cast<T>( ( x >= static_cast<T>( 0. ) ) ? 1 : 0.01 );
+    } );
+}
+
+template <Weight T>
+constexpr inline layer_t<T>
 tanh( const layer_t<T> & m ) {
     return m.unaryExpr( []( const T x ) {
         const auto e_x{ std::exp( x ) }, e_minus_x{ std::exp( -x ) };

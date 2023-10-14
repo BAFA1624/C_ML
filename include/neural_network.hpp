@@ -37,6 +37,7 @@ class NeuralNetwork
     cost_function_t<T>         m_cost_function;
     cost_function_t<T>         m_cost_gradient;
     T                          m_eta;
+    T                          m_eta_min;
 
     network_t<T>        m_network;
     output_network_t<T> m_intermediate_state;
@@ -55,7 +56,8 @@ class NeuralNetwork
         m_neurons_per_layer( neurons_per_layer ),
         m_cost_function( cost_function ),
         m_cost_gradient( cost_gradient ),
-        m_eta( eta ) {
+        m_eta( eta ),
+        m_eta_min( static_cast<T>( 0.001 ) * eta ) {
         // Must be an activation function for each layer (except the input
         // layer)
         m_activation_functions = std::vector<function_t<T>>{};
@@ -140,18 +142,19 @@ class NeuralNetwork
         return m_network.at( i );
     }
 
-    [[nodiscard]] constexpr inline Eigen::Matrix<T, Eigen::Dynamic,
-                                                 Eigen::Dynamic>
-    forward_pass(
+    constexpr inline layer_t<T> forward_pass(
         const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> & inputs,
         const std::size_t V = 0 ) noexcept;
-    [[nodiscard]] constexpr inline auto
-    backward_pass( const layer_t<T> & labels,
-                   const std::size_t  V = 0 ) noexcept;
+    constexpr inline void backward_pass( const layer_t<T> & labels,
+                                         const std::size_t  V = 0 ) noexcept;
+    constexpr inline void train( const layer_t<T> & labels,
+                                 const layer_t<T> & samples,
+                                 const std::size_t  N,
+                                 const std::size_t  V = 0 ) noexcept;
 };
 
 template <Weight T>
-[[nodiscard]] constexpr inline Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>
+constexpr inline layer_t<T>
 NeuralNetwork<T>::forward_pass(
     const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> & inputs,
     const std::size_t                                        V ) noexcept {
@@ -193,18 +196,12 @@ NeuralNetwork<T>::forward_pass(
         }
         input = output_layer;
     }
-    if ( V ) {
-        std::cout << std::format( "output ({}, {})\n", input.rows(),
-                                  input.cols() )
-                  << input << "\n";
-        std::cout << "Done.\n" << std::endl;
-    }
 
     return input.leftCols( input.cols() - 1 );
 }
 
 template <Weight T>
-[[nodiscard]] constexpr inline auto
+constexpr inline void
 NeuralNetwork<T>::backward_pass( const layer_t<T> & labels,
                                  const std::size_t  V ) noexcept {
     layer_t<T> expected_output{ layer_t<T>::Constant(
@@ -248,8 +245,42 @@ NeuralNetwork<T>::backward_pass( const layer_t<T> & labels,
                                           new_weights.cols() )
                           << new_weights << "\n";
             }
-            std::cout << "Weight diff:\n" << new_weights - cur_weights << "\n";
+            if ( V > 2 ) {
+                const auto cost{ m_cost_function( cur_output,
+                                                  expected_output ) };
+                std::cout << std::format( "cost ({}, {})\n", cost.rows(),
+                                          cost.cols() )
+                          << cost << std::endl;
+                std::cout << std::format( "d_cost ({}, {})\n", d_cost.rows(),
+                                          d_cost.cols() )
+                          << d_cost << std::endl;
+            }
+            if ( V > 3 ) {
+                std::cout << std::format( "cur_output ({}, {})\n",
+                                          cur_output.rows(), cur_output.cols() )
+                          << cur_output << std::endl;
+                std::cout << std::format( "expected_output ({}, {})\n",
+                                          expected_output.rows(),
+                                          expected_output.cols() )
+                          << expected_output << std::endl;
+            }
+            if ( V > 4 ) {
+                std::cout << std::format( "d_cur_output: ({}, {}\n",
+                                          d_cur_output.rows(),
+                                          d_cur_output.cols() )
+                          << d_cur_output << std::endl;
+                std::cout << std::format( "gradients: ({}, {})\n",
+                                          gradients.rows(), gradients.cols() )
+                          << gradients << std::endl;
+                std::cout << std::format( "d_weights: ({}, {})\n",
+                                          d_weights.rows(), d_weights.cols() )
+                          << d_weights << std::endl;
+            }
+            std::cout << "Weight diff:\n"
+                      << new_weights - cur_weights << "\n\n";
         }
+        if ( V )
+            std::cout << std::endl;
 
         // Update current layer's weights
         cur_weights << new_weights;
@@ -260,7 +291,17 @@ NeuralNetwork<T>::backward_pass( const layer_t<T> & labels,
     }
     if ( V )
         std::cout << "Done.\n" << std::endl;
-
-    // std::cout << std::endl;
 }
+
+template <Weight T>
+constexpr inline void
+NeuralNetwork<T>::train( const layer_t<T> & labels, const layer_t<T> & samples,
+                         const std::size_t N, const std::size_t V ) noexcept {
+    for ( std::size_t i{ 0 }; i < N; ++i ) {
+        forward_pass( samples, V );
+        backward_pass( labels, V );
+    }
+}
+
+
 } // namespace neural
