@@ -51,14 +51,17 @@ gen_f_labels( const layer_t<T> & inputs ) {
 int
 main() {
     std::cout << "Creating NeuralNetwork:" << std::endl;
-    neural::NeuralNetwork<double> test( { 2, 1 }, { tanh<double> },
-                                        { d_tanh<double> }, cost::SSR<double>,
-                                        cost::d_SSR<double>, 0.015 );
+    neural::NeuralNetwork<double> test(
+        { 2, 2, 1 }, { tanh<double>, tanh<double> },
+        { d_tanh<double>, d_tanh<double> }, cost::SSR<double>,
+        cost::d_SSR<double>, 0.015 );
     std::cout << "Done." << std::endl;
 
     const auto f_input = gen_f_data<double>( 0., 1., 10 );
     const auto f_labels = gen_f_labels<double>( f_input );
 
+    auto NOT_samples{ layer_t<double>( 2, 1 ) };
+    NOT_samples << 0, 1;
     auto OR_samples{ layer_t<double>( 4, 2 ) };
     OR_samples << 0, 0, 0, 1, 1, 0, 1, 1;
     const auto AND_samples{ OR_samples };
@@ -66,6 +69,8 @@ main() {
     const auto NOR_samples{ OR_samples };
     const auto XOR_samples{ OR_samples };
 
+    auto NOT_labels{ layer_t<double>( 2, 1 ) };
+    NOT_labels << 1, 0;
     auto OR_labels{ layer_t<double>( 4, 1 ) };
     auto AND_labels{ OR_labels };
     auto NAND_labels{ OR_labels };
@@ -77,9 +82,10 @@ main() {
     NOR_labels << 1, 0, 0, 0;
     XOR_labels << 0, 1, 1, 0;
 
-    const auto func_name{ "NAND" };
-    const auto inputs{ NAND_samples };
-    const auto labels{ NAND_labels };
+    const auto        func_name{ "XOR" };
+    const auto        inputs{ XOR_samples };
+    const auto        labels{ XOR_labels };
+    const std::size_t epochs{ 4000 };
 
     const auto initial_cost{ cost::SSR<double>( labels,
                                                 test.forward_pass( inputs ) ) };
@@ -88,10 +94,8 @@ main() {
         / static_cast<double>( initial_cost.rows() * initial_cost.cols() )
     };
 
-    const std::size_t epochs{ 1000 };
-
     std::cout << "Training for " << epochs << " epochs..." << std::endl;
-    test.train( labels, inputs, epochs, 5 );
+    test.train( labels, inputs, epochs );
     std::cout << "Done." << std::endl;
 
     const auto final_cost{ cost::SSR<double>( labels,

@@ -129,21 +129,17 @@ class NeuralNetwork
         return m_network.at( i );
     }
 
-    constexpr inline layer_t<T> forward_pass(
-        const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> & inputs,
-        const std::size_t V = 0 ) noexcept;
-    constexpr inline void backward_pass( const layer_t<T> & labels,
-                                         const std::size_t  V = 0 ) noexcept;
+    constexpr inline layer_t<T>
+                          forward_pass( const layer_t<T> & inputs ) noexcept;
+    constexpr inline void backward_pass( const layer_t<T> & labels ) noexcept;
     constexpr inline void train( const layer_t<T> & labels,
                                  const layer_t<T> & samples,
-                                 const std::size_t  N,
-                                 const std::size_t  V = 0 ) noexcept;
+                                 const std::size_t  N ) noexcept;
 };
 
 template <Weight T>
 constexpr inline layer_t<T>
-NeuralNetwork<T>::forward_pass( const layer_t<T> & inputs,
-                                const std::size_t  V ) noexcept {
+NeuralNetwork<T>::forward_pass( const layer_t<T> & inputs ) noexcept {
     auto input = layer_t<T>( inputs.rows(), inputs.cols() );
     assert( input.cols() == m_network.front().rows() );
     input << inputs;
@@ -152,8 +148,6 @@ NeuralNetwork<T>::forward_pass( const layer_t<T> & inputs,
                                        m_biases, m_activation_functions )
                       | std::views::drop( 1 );
 
-    if ( V )
-        std::cout << "Forward pass:\n";
     for ( const auto & [i, layers] : view | std::views::enumerate ) {
         auto & [network_layer, output_layer, bias, act_func] = layers;
 
@@ -164,22 +158,6 @@ NeuralNetwork<T>::forward_pass( const layer_t<T> & inputs,
 
         output_layer = act_func( input * network_layer + bias_vals );
 
-        // TODO: Remove when working.
-        if ( V ) {
-            std::cout << i << "\n";
-            std::cout << std::format( "input ({}, {})\n", input.rows(),
-                                      input.cols() )
-                      << input << "\n";
-            if ( V > 1 ) {
-                std::cout << std::format( "network_layer ({}, {})\n",
-                                          network_layer.rows(),
-                                          network_layer.cols() )
-                          << network_layer << "\n";
-            }
-            std::cout << std::format( "output_layer ({}, {})\n",
-                                      output_layer.rows(), output_layer.cols() )
-                      << output_layer << "\n";
-        }
         input = output_layer;
     }
 
@@ -188,19 +166,18 @@ NeuralNetwork<T>::forward_pass( const layer_t<T> & inputs,
 
 template <Weight T>
 constexpr inline void
-NeuralNetwork<T>::backward_pass( const layer_t<T> & labels,
-                                 const std::size_t  V ) noexcept {
+NeuralNetwork<T>::backward_pass( const layer_t<T> & labels ) noexcept {
     auto expected_output = labels;
     assert( expected_output.rows() == m_intermediate_state.back().rows()
             && expected_output.cols() == m_intermediate_state.back().cols() );
     auto layer_info_view{ std::views::zip( m_network, m_intermediate_state,
                                            m_biases, m_activation_gradients )
                           | std::views::reverse | std::views::slide( 2 ) };
-    if ( V )
-        std::cout << "Backward pass:\n";
 
+    // Calculate initial cost gradient between labels & output
+    auto d_cost{ m_cost_gradient( m_intermediate_state.back(),
+                                  expected_output ) };
     for ( const auto & [i, layers] : layer_info_view | std::views::enumerate ) {
-        std::cout << i << std::endl;
         // References to relevant layers
         const auto & cur_layer = layers[0];
         const auto & nxt_layer = layers[1];
@@ -209,96 +186,29 @@ NeuralNetwork<T>::backward_pass( const layer_t<T> & labels,
         const auto & [cur_weights, cur_output, cur_bias, cur_gradient] =
             cur_layer;
 
-        const auto d_cost{ m_cost_gradient( cur_output, expected_output ) };
-        std::cout << std::format( "d_cost ({}, {})\n", d_cost.rows(),
-                                  d_cost.cols() );
         const auto d_cur_output{ cur_gradient( cur_output ) };
-        std::cout << std::format( "d_cur_output ({}, {})\n",
-                                  d_cur_output.rows(), d_cur_output.cols() );
         const auto gradients{ d_cost.cwiseProduct( d_cur_output ) };
-        std::cout << std::format( "gradients ({}, {})\n", gradients.rows(),
-                                  gradients.cols() );
         const auto d_weights{ nxt_output.transpose() * gradients };
-        std::cout << std::format( "d_weights ({}, {})\n", d_weights.rows(),
-                                  d_weights.cols() );
         const auto d_bias{ gradients.colwise().sum() };
-        std::cout << std::format( "d_bias ({}, {})\n", d_bias.rows(),
-                                  d_bias.cols() );
-        // const auto new_weights{
-        //     cur_weights - m_eta * d_weights.leftCols( d_weights.cols() - 1 )
-        // };
         const auto new_weights{ cur_weights - m_eta * d_weights };
         const auto new_bias{ cur_bias - m_eta * d_bias };
 
-        // TODO: Remove when working.
-        if ( V ) {
-            if ( V > 1 ) {
-                std::cout << std::format( "cur_weights ({}, {})\n",
-                                          cur_weights.rows(),
-                                          cur_weights.cols() )
-                          << cur_weights << "\n";
-                std::cout << std::format( "new_weights ({}, {})\n",
-                                          new_weights.rows(),
-                                          new_weights.cols() )
-                          << new_weights << "\n";
-            }
-            if ( V > 2 ) {
-                const auto cost{ m_cost_function( cur_output,
-                                                  expected_output ) };
-                std::cout << std::format( "cost ({}, {})\n", cost.rows(),
-                                          cost.cols() )
-                          << cost << std::endl;
-                std::cout << std::format( "d_cost ({}, {})\n", d_cost.rows(),
-                                          d_cost.cols() )
-                          << d_cost << std::endl;
-            }
-            if ( V > 3 ) {
-                std::cout << std::format( "cur_output ({}, {})\n",
-                                          cur_output.rows(), cur_output.cols() )
-                          << cur_output << std::endl;
-                std::cout << std::format( "expected_output ({}, {})\n",
-                                          expected_output.rows(),
-                                          expected_output.cols() )
-                          << expected_output << std::endl;
-            }
-            if ( V > 4 ) {
-                std::cout << std::format( "d_cur_output: ({}, {}\n",
-                                          d_cur_output.rows(),
-                                          d_cur_output.cols() )
-                          << d_cur_output << std::endl;
-                std::cout << std::format( "gradients: ({}, {})\n",
-                                          gradients.rows(), gradients.cols() )
-                          << gradients << std::endl;
-                std::cout << std::format( "d_weights: ({}, {})\n",
-                                          d_weights.rows(), d_weights.cols() )
-                          << d_weights << std::endl;
-            }
-            std::cout << "Weight diff:\n"
-                      << new_weights - cur_weights << "\n\n";
-        }
-        if ( V )
-            std::cout << std::endl;
-
         // Update current layer's weights
         cur_weights << new_weights;
-        std::cout << "Weights updated.\n";
         cur_bias << new_bias;
-        std::cout << "Bias updated.\n";
         // Update input gradients for next layer
         // expected_output = gradients.leftCols( gradients.cols() - 1 )
-        expected_output = gradients * cur_weights.transpose();
+        d_cost = gradients * cur_weights.transpose();
     }
-    if ( V )
-        std::cout << "Done.\n" << std::endl;
 }
 
 template <Weight T>
 constexpr inline void
 NeuralNetwork<T>::train( const layer_t<T> & labels, const layer_t<T> & samples,
-                         const std::size_t N, const std::size_t V ) noexcept {
+                         const std::size_t N ) noexcept {
     for ( std::size_t i{ 0 }; i < N; ++i ) {
-        forward_pass( samples, V );
-        backward_pass( labels, V );
+        forward_pass( samples );
+        backward_pass( labels );
     }
 }
 
