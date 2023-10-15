@@ -168,9 +168,21 @@ d_SSR( const layer_t<T> & predictions, const layer_t<T> & labels ) {
     return static_cast<T>( -2 ) * ( labels - predictions );
 }
 
+// Categorial Cross-Entropy
+/*template <Weight T>
+constexpr inline layer_t<T>
+CCE( const layer_t<T> & predictions, const layer_t<T> & labels ) {
+    auto result{ layer_t<T>::Zero(predictions.rows(), predictions.cols()) };
+    for ( Eigen::Index i{ 0 }; i < result.rows(); ++i ) {
+        for ( Eigen::Index j{ 0 }; j < result.cols(); ++j ) {
+
+        }
+    }
+}
+
 template <Weight T>
 constexpr inline auto
-MSE() {}
+MSE() {}*/
 
 } // namespace  cost
 
