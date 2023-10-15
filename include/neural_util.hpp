@@ -33,7 +33,7 @@ using output_network_t = std::vector<layer_t<T>>;
 template <Weight T>
 using bias_layer_t = layer_t<T>;
 template <Weight T>
-using bias_network_t = std::vector<layer_t<T>>;
+using bias_network_t = std::vector<bias_layer_t<T>>;
 
 template <Weight T>
 using function_t = std::function<const layer_t<T>( const layer_t<T> & )>;

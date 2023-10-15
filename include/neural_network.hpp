@@ -41,6 +41,7 @@ class NeuralNetwork
 
     network_t<T>        m_network;
     output_network_t<T> m_intermediate_state;
+    bias_network_t<T>   m_biases;
 
     public:
     NeuralNetwork( const std::vector<std::uint64_t> & neurons_per_layer,
@@ -79,33 +80,19 @@ class NeuralNetwork
         // shape for back propagation using the outputs of each layer
         m_network = network_t<T>( m_n_layers );
         m_intermediate_state = output_network_t<T>( m_n_layers );
+        m_biases = bias_network_t<T>( m_n_layers );
 
-        /*
-        auto layer_info{ std::views::zip( m_network, m_intermediate_state,
-                                   m_activation_gradients )
-                  | std::views::reverse };
-         auto layer_info_view{ layer_info | std::views::slide( 2 ) };
-         */
-
-        // Initializing layers
-        /*const auto layer_info{ std::views::zip( m_neurons_per_layer,
-        m_network, m_intermediate_state ) }; for ( const auto & layer_data :
-        layer_info | std::views::slide( 2 ) ) { const auto & prev_layers =
-        layer_data[0]; const auto & cur_layers = layer_data[1];
-
-            const auto & [prev_n_neurons, prev_layer, prev_outputs] =
-                prev_layers;
-            const auto & [cur_n_neurons, cur_layer, cur_outputs] = cur_layers;
-
-            cur_layer = layer_t<T>::Random( prev_n_neurons + 1, cur_n_neurons );
-        }*/
+        std::uint64_t prev_layer_inputs{ 1 };
         std::uint64_t prev_layer_sz{ m_n_inputs };
 
         for ( std::uint64_t i{ 0 }; i < m_n_layers; ++i ) {
             const auto n_neurons{ m_neurons_per_layer[i] };
-            m_network[i] = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>(
-                prev_layer_sz + 1, n_neurons );
-            m_network[i].setRandom();
+            m_network[i] = layer_t<T>::Random( prev_layer_sz, n_neurons );
+            m_intermediate_state[i] =
+                layer_t<T>::Zero( prev_layer_inputs, n_neurons );
+            m_biases[i] = bias_layer_t<T>::Random( 1, n_neurons );
+
+            prev_layer_inputs = prev_layer_sz;
             prev_layer_sz = n_neurons;
         }
     }
@@ -155,28 +142,27 @@ class NeuralNetwork
 
 template <Weight T>
 constexpr inline layer_t<T>
-NeuralNetwork<T>::forward_pass(
-    const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> & inputs,
-    const std::size_t                                        V ) noexcept {
-    Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> input( inputs.rows(),
-                                                            inputs.cols() + 1 );
+NeuralNetwork<T>::forward_pass( const layer_t<T> & inputs,
+                                const std::size_t  V ) noexcept {
+    auto input = layer_t<T>( inputs.rows(), inputs.cols() );
     assert( input.cols() == m_network.front().rows() );
-    const auto bias{ layer_t<T>::Constant( input.rows(), 1, 1. ) };
-    input << inputs, bias;
+    input << inputs;
     m_intermediate_state[0] = input;
     const auto view = std::views::zip( m_network, m_intermediate_state,
-                                       m_activation_functions )
+                                       m_biases, m_activation_functions )
                       | std::views::drop( 1 );
+
     if ( V )
         std::cout << "Forward pass:\n";
     for ( const auto & [i, layers] : view | std::views::enumerate ) {
-        auto & [network_layer, output_layer, act_func] = layers;
+        auto & [network_layer, output_layer, bias, act_func] = layers;
 
-        output_layer = layer_t<T>::Constant(
-            input.rows(), network_layer.cols() + 1, static_cast<T>( 1. ) );
+        auto bias_vals{ bias_layer_t<T>( input.rows(), network_layer.cols() ) };
+        for ( Eigen::Index i{ 0 }; i < bias.cols(); ++i ) {
+            bias_vals.col( i ).setConstant( bias( 0, i ) );
+        }
 
-        output_layer.leftCols( output_layer.cols() - 1 )
-            << act_func( input * network_layer );
+        output_layer = act_func( input * network_layer + bias_vals );
 
         // TODO: Remove when working.
         if ( V ) {
@@ -197,41 +183,52 @@ NeuralNetwork<T>::forward_pass(
         input = output_layer;
     }
 
-    return input.leftCols( input.cols() - 1 );
+    return input;
 }
 
 template <Weight T>
 constexpr inline void
 NeuralNetwork<T>::backward_pass( const layer_t<T> & labels,
                                  const std::size_t  V ) noexcept {
-    layer_t<T> expected_output{ layer_t<T>::Constant(
-        labels.rows(), labels.cols() + 1, static_cast<T>( 1. ) ) };
-    expected_output.leftCols( labels.cols() ) << labels;
+    auto expected_output = labels;
     assert( expected_output.rows() == m_intermediate_state.back().rows()
             && expected_output.cols() == m_intermediate_state.back().cols() );
     auto layer_info_view{ std::views::zip( m_network, m_intermediate_state,
-                                           m_activation_gradients )
+                                           m_biases, m_activation_gradients )
                           | std::views::reverse | std::views::slide( 2 ) };
     if ( V )
         std::cout << "Backward pass:\n";
 
     for ( const auto & [i, layers] : layer_info_view | std::views::enumerate ) {
+        std::cout << i << std::endl;
         // References to relevant layers
         const auto & cur_layer = layers[0];
         const auto & nxt_layer = layers[1];
-        const auto & [nxt_weights, nxt_output, nxt_gradient] = nxt_layer;
-        const auto & [cur_weights, cur_output, cur_gradient] = cur_layer;
+        const auto & [nxt_weights, nxt_output, nxt_bias, nxt_gradient] =
+            nxt_layer;
+        const auto & [cur_weights, cur_output, cur_bias, cur_gradient] =
+            cur_layer;
 
         const auto d_cost{ m_cost_gradient( cur_output, expected_output ) };
+        std::cout << std::format( "d_cost ({}, {})\n", d_cost.rows(),
+                                  d_cost.cols() );
         const auto d_cur_output{ cur_gradient( cur_output ) };
+        std::cout << std::format( "d_cur_output ({}, {})\n",
+                                  d_cur_output.rows(), d_cur_output.cols() );
         const auto gradients{ d_cost.cwiseProduct( d_cur_output ) };
+        std::cout << std::format( "gradients ({}, {})\n", gradients.rows(),
+                                  gradients.cols() );
         const auto d_weights{ nxt_output.transpose() * gradients };
+        std::cout << std::format( "d_weights ({}, {})\n", d_weights.rows(),
+                                  d_weights.cols() );
+        const auto d_bias{ gradients.colwise().sum() };
+        std::cout << std::format( "d_bias ({}, {})\n", d_bias.rows(),
+                                  d_bias.cols() );
         // const auto new_weights{
         //     cur_weights - m_eta * d_weights.leftCols( d_weights.cols() - 1 )
         // };
-        const auto new_weights{
-            cur_weights - m_eta * d_weights.leftCols( cur_weights.cols() )
-        };
+        const auto new_weights{ cur_weights - m_eta * d_weights };
+        const auto new_bias{ cur_bias - m_eta * d_bias };
 
         // TODO: Remove when working.
         if ( V ) {
@@ -284,10 +281,12 @@ NeuralNetwork<T>::backward_pass( const layer_t<T> & labels,
 
         // Update current layer's weights
         cur_weights << new_weights;
+        std::cout << "Weights updated.\n";
+        cur_bias << new_bias;
+        std::cout << "Bias updated.\n";
         // Update input gradients for next layer
         // expected_output = gradients.leftCols( gradients.cols() - 1 )
-        expected_output =
-            gradients.leftCols( cur_weights.cols() ) * cur_weights.transpose();
+        expected_output = gradients * cur_weights.transpose();
     }
     if ( V )
         std::cout << "Done.\n" << std::endl;
