@@ -51,10 +51,9 @@ gen_f_labels( const layer_t<T> & inputs ) {
 int
 main() {
     std::cout << "Creating NeuralNetwork:" << std::endl;
-    neural::NeuralNetwork<double> test(
-        { 2, 2, 1 }, { tanh<double>, tanh<double> },
-        { d_tanh<double>, d_tanh<double> }, cost::SSR<double>,
-        cost::d_SSR<double>, 0.0008 );
+    neural::NeuralNetwork<double> test( { 2, 1 }, { tanh<double> },
+                                        { d_tanh<double> }, cost::SSR<double>,
+                                        cost::d_SSR<double>, 0.015 );
     std::cout << "Done." << std::endl;
 
     const auto f_input = gen_f_data<double>( 0., 1., 10 );
@@ -78,9 +77,10 @@ main() {
     NOR_labels << 1, 0, 0, 0;
     XOR_labels << 0, 1, 1, 0;
 
-    const auto func_name{ "OR" };
-    const auto inputs{ OR_samples };
-    const auto labels{ OR_labels };
+    const auto        func_name{ "AND" };
+    const auto        inputs{ AND_samples };
+    const auto        labels{ AND_labels };
+    const std::size_t epochs{ 1000 };
 
     const auto initial_cost{ cost::SSR<double>( labels,
                                                 test.forward_pass( inputs ) ) };
@@ -89,26 +89,23 @@ main() {
         / static_cast<double>( initial_cost.rows() * initial_cost.cols() )
     };
 
-    for ( std::size_t i{ 2 }; i <= 2; ++i ) {
-        std::cout << "Training for " << i << " epochs..." << std::endl;
-        test.train( labels, inputs, i, 5 );
-        std::cout << "Done." << std::endl;
+    std::cout << "Training for " << epochs << " epochs..." << std::endl;
+    test.train( labels, inputs, epochs, 5 );
+    std::cout << "Done." << std::endl;
 
-        const auto final_cost{ cost::SSR<double>(
-            labels, test.forward_pass( inputs ) ) };
-        const auto final_avg_cost{
-            final_cost.sum()
-            / static_cast<double>( final_cost.rows() * final_cost.cols() )
-        };
-        std::cout << std::format( "Avg. cost change: {} -> {}",
-                                  initial_avg_cost, final_avg_cost )
-                  << std::endl;
+    const auto final_cost{ cost::SSR<double>( labels,
+                                              test.forward_pass( inputs ) ) };
+    const auto final_avg_cost{ final_cost.sum()
+                               / static_cast<double>( final_cost.rows()
+                                                      * final_cost.cols() ) };
+    std::cout << std::format( "Avg. cost change: {} -> {}", initial_avg_cost,
+                              final_avg_cost )
+              << std::endl;
 
-        std::cout << std::format( "{}:", func_name ) << std::endl;
-        for ( Eigen::Index i{ 0 }; i < inputs.rows(); ++i ) {
-            std::cout << std::format(
-                "{} || {} -> {}\t({})\n", inputs( i, 0 ), inputs( i, 1 ),
-                labels( i, 0 ), test.forward_pass( inputs.row( i ) )( 0, 0 ) );
-        }
+    std::cout << std::format( "{}:", func_name ) << std::endl;
+    for ( Eigen::Index i{ 0 }; i < inputs.rows(); ++i ) {
+        std::cout << std::format(
+            "{} || {} -> {}\t({})\n", inputs( i, 0 ), inputs( i, 1 ),
+            labels( i, 0 ), test.forward_pass( inputs.row( i ) )( 0, 0 ) );
     }
 }
