@@ -11,7 +11,7 @@ using namespace neural::activation;
 template <Weight T>
 constexpr inline T
 f( const T x ) {
-    return 5 * std::sin( x );
+    return std::sin( x );
 }
 
 template <Weight T>
@@ -51,13 +51,14 @@ gen_f_labels( const layer_t<T> & inputs ) {
 int
 main() {
     std::cout << "Creating NeuralNetwork:" << std::endl;
-    neural::NeuralNetwork<double> test( { 2, 1 }, { tanh<double> },
-                                        { d_tanh<double> }, cost::SSR<double>,
-                                        cost::d_SSR<double>, 0.015 );
+    neural::NeuralNetwork<double> test(
+        { 2, 100, 100, 1 }, { lrelu<double>, lrelu<double>, lrelu<double> },
+        { d_lrelu<double>, d_lrelu<double>, d_lrelu<double> },
+        cost::SSR<double>, cost::d_SSR<double>, 0.0001 );
     std::cout << "Done." << std::endl;
 
-    const auto f_input = gen_f_data<double>( 0., 1., 10 );
-    const auto f_labels = gen_f_labels<double>( f_input );
+    const auto f_samples = gen_f_data<double>( 0., 6, 100 );
+    const auto f_labels = gen_f_labels<double>( f_samples );
 
     auto OR_samples{ layer_t<double>( 4, 2 ) };
     OR_samples << 0, 0, 0, 1, 1, 0, 1, 1;
@@ -77,10 +78,10 @@ main() {
     NOR_labels << 1, 0, 0, 0;
     XOR_labels << 0, 1, 1, 0;
 
-    const auto        func_name{ "AND" };
-    const auto        inputs{ AND_samples };
-    const auto        labels{ AND_labels };
-    const std::size_t epochs{ 1000 };
+    const auto        func_name{ "OR" };
+    const auto        inputs{ OR_samples };
+    const auto        labels{ OR_labels };
+    const std::size_t epochs{ 10000 };
 
     const auto initial_cost{ cost::SSR<double>( labels,
                                                 test.forward_pass( inputs ) ) };
@@ -90,7 +91,7 @@ main() {
     };
 
     std::cout << "Training for " << epochs << " epochs..." << std::endl;
-    test.train( labels, inputs, epochs, 5 );
+    test.train( labels, inputs, epochs );
     std::cout << "Done." << std::endl;
 
     const auto final_cost{ cost::SSR<double>( labels,
@@ -104,8 +105,15 @@ main() {
 
     std::cout << std::format( "{}:", func_name ) << std::endl;
     for ( Eigen::Index i{ 0 }; i < inputs.rows(); ++i ) {
-        std::cout << std::format(
-            "{} || {} -> {}\t({})\n", inputs( i, 0 ), inputs( i, 1 ),
-            labels( i, 0 ), test.forward_pass( inputs.row( i ) )( 0, 0 ) );
+        if ( inputs.cols() > 1 ) {
+            std::cout << std::format(
+                "{} || {} -> {}\t({})\n", inputs( i, 0 ), inputs( i, 1 ),
+                labels( i, 0 ), test.forward_pass( inputs.row( i ) )( 0, 0 ) );
+        }
+        else {
+            std::cout << std::format(
+                "{} -> {}\t({})\n", inputs( i, 0 ), labels( i, 0 ),
+                test.forward_pass( inputs.row( i ) )( 0, 0 ) );
+        }
     }
 }
